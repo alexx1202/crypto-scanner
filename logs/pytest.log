@@ -1,0 +1,35 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-8.3.5, pluggy-1.5.0
+rootdir: C:\Users\User\OneDrive\Documents\CRYPTO\PYTHON\WORK_IN_PROGRESS\cryptoscanner
+plugins: mock-3.14.1
+collected 7 items
+
+test.py ..F....                                                          [100%]
+
+================================== FAILURES ===================================
+____________________ test_fetch_recent_klines_insufficient ____________________
+
+    def test_fetch_recent_klines_insufficient():
+        def build_chunk():
+            return [[str(1717382400000), "", "", "", "", "1"] for _ in range(100)]
+    
+        mock_response = {"result": {"list": build_chunk()}}
+        responses = [mock_response, mock_response, mock_response]
+    
+        def side_effect(*args, **kwargs):
+            if responses:
+                return MagicMock(status_code=200, json=lambda: responses.pop(0))
+            return MagicMock(status_code=200, json=lambda: {"result": {"list": []}})
+    
+        with patch("scan.requests.get", side_effect=side_effect):
+            result = scan.fetch_recent_klines("BTCUSDT", total=315)
+>           assert result == []
+E           AssertionError: assert [['1717382400...'', '1'], ...] == []
+E             
+E             Left contains 315 more items, first extra item: ['1717382400000', '', '', '', '', '1']
+E             Use -v to get more diff
+
+test.py:52: AssertionError
+=========================== short test summary info ===========================
+FAILED test.py::test_fetch_recent_klines_insufficient - AssertionError: asser...
+========================= 1 failed, 6 passed in 1.99s =========================
