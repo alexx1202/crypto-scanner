@@ -34,10 +34,10 @@ The script writes a new file with `_grouped` appended to the original name.
 
 ## Log Files
 
-All logs are written to:
+All logs are written to the `logs` directory in the project root:
 
 ```
-~/OneDrive/Documents/CRYPTO/PYTHON/WORK_IN_PROGRESS/cryptoscanner/logs
+<project_root>/logs
 ```
 
 `scan.py` writes `scanlog.txt` here, while `run_checks.py` creates

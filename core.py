@@ -19,16 +19,8 @@ KLINE_CACHE = {}
 SORTED_KLINES_CACHE = {}
 
 # Directory where all log files are written
-LOG_DIR = os.path.join(
-    os.path.expanduser("~"),
-    "OneDrive",
-    "Documents",
-    "CRYPTO",
-    "PYTHON",
-    "WORK_IN_PROGRESS",
-    "cryptoscanner",
-    "logs",
-)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_DIR = os.path.join(BASE_DIR, "logs")
 
 def get_debug_logger() -> logging.Logger:
     """Return a memoized logger for debugging kline fetches."""
