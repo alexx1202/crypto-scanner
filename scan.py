@@ -6,6 +6,8 @@ Handles logging, threading, Excel export, scan loop.
 import os
 import sys
 import logging
+import smtplib
+from email.message import EmailMessage
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
@@ -56,6 +58,34 @@ def clean_existing_excels(logger: logging.Logger | None = None) -> None:
                 os.remove(file)
             except OSError:
                 logger.warning("Failed to delete %s", file)
+
+def send_email_alert(subject: str, body: str, logger: logging.Logger) -> None:
+    """Send an email alert using SMTP credentials from env vars."""
+    host = os.getenv("SMTP_HOST")
+    port = int(os.getenv("SMTP_PORT", "0"))
+    user = os.getenv("SMTP_USER")
+    password = os.getenv("SMTP_PASS")
+    to_addr = os.getenv("EMAIL_TO")
+    from_addr = os.getenv("EMAIL_FROM", user or "")
+
+    if not all([host, port, user, password, to_addr]):
+        logger.info("Email not configured. Skipping email alert.")
+        return
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = from_addr
+    msg["To"] = to_addr
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP(host, port) as smtp:
+            smtp.starttls()
+            smtp.login(user, password)
+            smtp.send_message(msg)
+        logger.info("Email alert sent to %s", to_addr)
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning("Failed to send email alert: %s", exc)
 
 def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger) -> None:
     """Export results to Excel with formatting."""  # pylint: disable=too-many-locals
@@ -163,6 +193,11 @@ def run_scan(logger: logging.Logger) -> None:
 
     export_to_excel(pd.DataFrame(rows), [s for s, _ in all_symbols], logger)
     logger.info("Export complete: Crypto_Volume.xlsx")
+    send_email_alert(
+        "Volume scan complete",
+        "Crypto_Volume.xlsx has been exported.",
+        logger,
+    )
 
 def main() -> None:
     """Main entry point."""
