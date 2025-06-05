@@ -21,11 +21,11 @@ pytest test.py
 
 ## Grouping Debug Logs
 
-Use `group_logs.py` to organise `klines_debug.log` entries so that all lines for
+Use `group_logs.py` to organise `scanlog.txt` entries so that all lines for
 each symbol appear together:
 
 ```bash
-python group_logs.py /path/to/klines_debug.log
+python group_logs.py /path/to/scanlog.txt
 ```
 
 The script writes a new file with `_grouped` appended to the original name.

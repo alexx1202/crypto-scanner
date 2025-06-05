@@ -40,7 +40,7 @@ def group_log_by_symbol(logfile: str, output: str | None = None) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Group kline debug logs by symbol")
-    parser.add_argument("logfile", help="Path to klines_debug.log")
+    parser.add_argument("logfile", help="Path to scanlog.txt")
     parser.add_argument("-o", "--output", help="Output file path")
     args = parser.parse_args()
 
