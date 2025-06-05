@@ -62,6 +62,11 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
         green_format = writer.book.add_format({
             "bg_color": "#C6EFCE", "font_color": "#006100"
         })
+        accounting_format = writer.book.add_format({"num_format": "_(* #,##0_);_(* (#,##0);_(* \"-\"??_);_(@_)"})
+
+        if "24h Volume" in df.columns:
+            col_idx = df.columns.get_loc("24h Volume")
+            worksheet.set_column(col_idx, col_idx, None, accounting_format)
 
         for col in range(1, 6):
             col_letter = chr(ord("A") + col)
@@ -117,6 +122,10 @@ def run_scan(logger: logging.Logger) -> None:
     logger.info("Scanning symbols in parallel...")
 
     rows, failed = scan_and_collect_results([s for s, _ in all_symbols], logger)
+
+    volume_map = {symbol: volume for symbol, volume in all_symbols}
+    for row in rows:
+        row["24h Volume"] = volume_map.get(row["Symbol"], 0)
 
     if failed:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
