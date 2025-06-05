@@ -1,3 +1,5 @@
+"""Core helpers for fetching Bybit market data and calculating indicators."""
+
 import os
 import time
 import json
@@ -11,6 +13,7 @@ from tqdm import tqdm
 from volume_math import calculate_volume_change
 
 KLINE_CACHE = {}
+SORTED_KLINES_CACHE: dict[int, list] = {}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, "logs")
@@ -18,6 +21,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def get_debug_logger() -> logging.Logger:
+    """Return a shared debug logger writing to ``logs/scanlog.txt``."""
     if not hasattr(get_debug_logger, "cached_logger"):
         logger = logging.getLogger("debug_logger")
         logger.setLevel(logging.DEBUG)
@@ -32,6 +36,7 @@ def get_debug_logger() -> logging.Logger:
 
 
 def get_auth_headers() -> dict:
+    """Return request headers with API key or a generic user agent."""
     api_key = os.getenv("BYBIT_API_KEY")
     if api_key:
         return {"X-BYBIT-API-KEY": api_key}
@@ -39,6 +44,7 @@ def get_auth_headers() -> dict:
 
 
 def get_tradeable_symbols_sorted_by_volume() -> list:
+    """Return USDT symbols sorted by 24h turnover descending."""
     url = "https://api.bybit.com/v5/market/tickers?category=linear"
     try:
         with tqdm(total=1, desc="Fetching symbols") as pbar:
@@ -61,12 +67,14 @@ def get_tradeable_symbols_sorted_by_volume() -> list:
 
 
 def stable_chunk_hash(chunk: list) -> str:
+    """Return a deterministic MD5 hash for a kline chunk."""
     return hashlib.md5(
         json.dumps(chunk, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
 
 
 def build_kline_url(symbol: str, interval: str, start: int) -> str:
+    """Construct the kline API URL for a symbol/interval starting time."""
     return (
         "https://api.bybit.com/v5/market/kline?category=linear"
         + f"&symbol={symbol}"
@@ -77,12 +85,14 @@ def build_kline_url(symbol: str, interval: str, start: int) -> str:
 
 
 def get_kline_end_time() -> int:
+    """Return the current UTC timestamp rounded down to the nearest 15m."""
     now = datetime.now(timezone.utc)
     floored = now.replace(minute=(now.minute // 15) * 15, second=0, microsecond=0)
     return int(floored.timestamp() * 1000)
 
 
 def fetch_with_backoff(url: str, symbol: str, logger: logging.Logger) -> list:
+    """Fetch a URL with basic retry/backoff handling for rate limits."""
     max_retries = 3
     for attempt in range(max_retries):
         try:
@@ -111,6 +121,7 @@ def fetch_with_backoff(url: str, symbol: str, logger: logging.Logger) -> list:
 
 
 def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> list:
+    """Return ``total`` klines for ``symbol`` using backoff retry logic."""
     logger = get_debug_logger()
     main_logger = logging.getLogger("volume_logger")
 
@@ -165,6 +176,7 @@ def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> 
 
 
 def get_funding_rate(symbol: str) -> tuple[float, int]:
+    """Return the latest funding rate and timestamp for ``symbol``."""
     url = (
         "https://api.bybit.com/v5/market/tickers"
         f"?category=linear&symbol={symbol}"
@@ -186,6 +198,7 @@ def get_funding_rate(symbol: str) -> tuple[float, int]:
 
 
 def get_open_interest_change(symbol: str) -> float:
+    """Return the 24h open interest percentage change for ``symbol``."""
     url = (
         "https://api.bybit.com/v5/market/open-interest"
         f"?category=linear&symbol={symbol}&interval=1h&limit=24"
@@ -210,6 +223,7 @@ def get_open_interest_change(symbol: str) -> float:
 
 
 def process_symbol(symbol: str, logger: logging.Logger) -> dict:
+    """Fetch indicator data for ``symbol`` and return a result row."""
     klines = fetch_recent_klines(symbol)
     if not klines:
         logger.warning("%s skipped: No valid klines returned.", symbol)
