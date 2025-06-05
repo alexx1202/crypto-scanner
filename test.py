@@ -84,11 +84,11 @@ def test_process_symbol_with_mocked_logger():
         result = core.process_symbol("BTCUSDT", MagicMock())
         assert isinstance(result, dict)
         assert result["Symbol"] == "BTCUSDT"
-        assert "5m Volume % Change" in result
-        assert "15m Volume % Change" in result
-        assert "30m Volume % Change" in result
-        assert "1h Volume % Change" in result
-        assert "4h Volume % Change" in result
+        assert "5M" in result
+        assert "15M" in result
+        assert "30M" in result
+        assert "1H" in result
+        assert "4H" in result
 
 # -------------------------------
 # Tests for volume_math.calculate_volume_change
