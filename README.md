@@ -13,10 +13,11 @@ pip install -r requirements.txt
 
 ## Running Tests
 
-After installing the dependencies, run the unit tests with:
+After installing the dependencies, run `run_checks.py` to execute
+both pylint and pytest with progress bars:
 
 ```bash
-pytest test.py
+python run_checks.py
 ```
 
 ## Grouping Debug Logs

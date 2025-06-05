@@ -3,3 +3,4 @@ requests
 tqdm
 xlsxwriter
 pytest
+pylint
