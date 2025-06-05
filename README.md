@@ -22,6 +22,15 @@ both pylint and pytest with progress bars:
 python run_checks.py
 ```
 
+## Running the Scan
+
+Once the lint checks and tests pass, execute the scanner directly to fetch
+market data and export `Crypto_Volume.xlsx`:
+
+```bash
+python scan.py
+```
+
 ## Grouping Debug Logs
 
 Use `group_logs.py` to organise `scanlog.txt` entries so that all lines for
