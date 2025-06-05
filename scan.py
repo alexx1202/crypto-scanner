@@ -4,12 +4,6 @@ import os
 import smtplib
 import logging
 from email.message import EmailMessage
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-import pandas as pd
-from tqdm import tqdm
-
-import core
 from scan_utils import wait_for_file_close
 
 
