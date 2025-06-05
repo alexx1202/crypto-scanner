@@ -56,5 +56,6 @@ EMAIL_TO    # Recipient email address
 EMAIL_FROM  # Sender address (defaults to SMTP_USER)
 ```
 
-If any of these variables are missing, email alerts will be skipped.
+If any variables are missing, the scan logs will list which ones were absent
+before skipping email alerts.
 
