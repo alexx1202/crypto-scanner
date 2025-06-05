@@ -18,7 +18,7 @@ def wait_for_file_close(filename: str, logger: logging.Logger) -> None:
         return
     while True:
         try:
-            with open(filename, "a"):
+            with open(filename, "a", encoding="utf-8"):
                 break
         except OSError:
             logger.warning(
