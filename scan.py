@@ -165,6 +165,10 @@ def main() -> None:
                 if result:
                     rows.append(result)
 
+        if not rows:
+            logger.warning("No valid data collected. Skipping export.")
+            return
+
         symbol_order = [symbol for symbol, _ in sorted_symbols]
         df = pd.DataFrame(rows)
         df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})

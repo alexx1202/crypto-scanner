@@ -90,3 +90,13 @@ def test_calculate_volume_change_cache_reuse():
     scan.calculate_volume_change(klines, 60)
     # Cache should still contain only one entry
     assert len(scan._sorted_klines_cache) == 1
+
+
+def test_main_no_results():
+    with patch("scan.get_tradeable_symbols_sorted_by_volume", return_value=[("BTCUSDT", 1)]), \
+         patch("scan.fetch_recent_klines", return_value=[]), \
+         patch("scan.pd.ExcelWriter") as mock_writer, \
+         patch("scan.setup_logging") as mock_logging:
+        mock_logging.return_value = logging.getLogger("test")
+        scan.main()
+        mock_writer.assert_not_called()
