@@ -66,8 +66,10 @@ def test_clean_existing_excels(tmp_path):
     dummy_file.write_text("data")
 
     with patch("scan.os.listdir", return_value=["file.xlsx"]), \
-         patch("scan.os.remove") as mock_remove:
+         patch("scan.os.remove") as mock_remove, \
+         patch("scan.wait_for_file_close") as mock_wait:
         scan.clean_existing_excels()
+        mock_wait.assert_called_once()
         mock_remove.assert_called_once_with("file.xlsx")
 
 def test_setup_logging():
