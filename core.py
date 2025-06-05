@@ -178,6 +178,9 @@ def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> 
     KLINE_CACHE[symbol] = all_klines
     return all_klines[-total:]
 
+
+def get_funding_rate(symbol: str) -> tuple[float, int]:
+    """Return latest funding rate and timestamp for a symbol."""
     url = (
         "https://api.bybit.com/v5/market/funding/history"
         f"?symbol={symbol}&category=linear&limit=1"
@@ -188,10 +191,14 @@ def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> 
         response.raise_for_status()
         data = response.json()
         item = data.get("result", {}).get("list", [])[0]
+        rate = float(item.get("fundingRate", 0))
+        ts = int(item.get("fundingRateTimestamp", fetch_time))
+        return rate, ts
     except (IndexError, ValueError, KeyError, requests.RequestException):
         logging.getLogger("volume_logger").warning(
             "Failed to fetch funding rate for %s", symbol
         )
+        return 0.0, 0
 
 def process_symbol(symbol: str, logger: logging.Logger) -> dict:
     """Fetch klines and compute volume changes for 5m, 15m, 30m, 1h, and 4h blocks."""
