@@ -93,6 +93,7 @@ def test_process_symbol_with_mocked_logger():
         assert "1H" in result
         assert "4H" in result
         assert "Funding Rate" in result
+        assert "Funding Rate Timestamp" in result
 
 def test_get_funding_rate_recent():
     """Return funding rate when timestamp is within 3 minutes."""
@@ -101,18 +102,20 @@ def test_get_funding_rate_recent():
     with patch("core.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = mock_data
-        rate = core.get_funding_rate("BTCUSDT")
+        rate, ts_returned = core.get_funding_rate("BTCUSDT")
         assert rate == 0.0001
+        assert ts_returned == ts
 
-def test_get_funding_rate_too_old():
-    """Return None when funding rate data is stale."""
+def test_get_funding_rate_old_data():
+    """Return funding rate even when data timestamp is old."""
     ts = int((datetime.now(timezone.utc) - timedelta(minutes=5)).timestamp() * 1000)
     mock_data = {"result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}}
     with patch("core.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = mock_data
-        rate = core.get_funding_rate("BTCUSDT")
-        assert rate is None
+        rate, ts_returned = core.get_funding_rate("BTCUSDT")
+        assert rate == 0.0001
+        assert ts_returned == ts
 
 # -------------------------------
 # Tests for volume_math.calculate_volume_change
