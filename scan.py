@@ -4,7 +4,12 @@ import os
 import smtplib
 import logging
 from email.message import EmailMessage
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import pandas as pd
+from tqdm import tqdm
+
+import core
 from scan_utils import wait_for_file_close
 
 
@@ -166,3 +171,74 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
                 "value": 0,
                 "format": red_format
             })
+
+
+def submit_symbol_futures(symbols: list[str], executor: ThreadPoolExecutor,
+                           logger: logging.Logger) -> dict:
+    """Return a mapping of futures to their corresponding symbol."""
+    return {
+        executor.submit(core.process_symbol, symbol, logger): symbol
+        for symbol in symbols
+    }
+
+
+def scan_and_collect_results(symbols: list[str],
+                             logger: logging.Logger) -> tuple[list, list]:
+    """Process all symbols concurrently and collect successes and failures."""
+    rows: list[dict] = []
+    failed: list[str] = []
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        futures = submit_symbol_futures(symbols, executor, logger)
+        for future in tqdm(as_completed(futures), total=len(futures),
+                           desc="Scanning"):
+            symbol = futures[future]
+            result = future.result()
+            if result:
+                rows.append(result)
+            else:
+                failed.append(symbol)
+    return rows, failed
+
+
+def run_scan(logger: logging.Logger) -> None:
+    """Fetch symbols, run analysis, and export results to Excel."""
+    logger.info("Fetching USDT perpetual futures from Bybit...")
+    all_symbols = core.get_tradeable_symbols_sorted_by_volume()
+    logger.info("Total pairs found: %d", len(all_symbols))
+
+    if not all_symbols:
+        logger.warning("No symbols retrieved. Skipping export.")
+        return
+
+    clean_existing_excels(logger)
+    logger.info("Scanning symbols in parallel...")
+
+    rows, failed = scan_and_collect_results([s for s, _ in all_symbols], logger)
+
+    volume_map = dict(all_symbols)
+    for row in rows:
+        row["24h USD Volume"] = volume_map.get(row["Symbol"], 0)
+
+    if failed:
+        logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
+
+    export_to_excel(pd.DataFrame(rows), [s for s, _ in all_symbols], logger)
+    logger.info("Export complete: Crypto_Volume.xlsx")
+    send_email_alert(
+        "Volume scan complete",
+        "Crypto_Volume.xlsx has been exported.",
+        logger,
+    )
+
+
+def main() -> None:
+    """Entry point for running the scanner from the command line."""
+    logger = setup_logging()
+    try:
+        run_scan(logger)
+    except (RuntimeError, ValueError, TypeError) as exc:
+        logger.exception("Script failed: %s", exc)
+
+
+if __name__ == "__main__":
+    main()
