@@ -1,14 +1,15 @@
+"""Utilities for running a Bybit volume scan and exporting results."""
+
 import os
 import smtplib
 import logging
 from email.message import EmailMessage
-from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
-import core
 from scan_utils import wait_for_file_close
 
 
 def setup_logging() -> logging.Logger:
+    """Configure and return the main scanner logger."""
     logger = logging.getLogger("volume_logger")
     logger.setLevel(logging.INFO)
 
@@ -28,6 +29,7 @@ def setup_logging() -> logging.Logger:
 
 
 def clean_existing_excels(logger: logging.Logger | None = None) -> None:
+    """Delete existing Excel files in the working directory."""
     if logger is None:
         logger = logging.getLogger("volume_logger")
     for file in os.listdir():
@@ -40,6 +42,7 @@ def clean_existing_excels(logger: logging.Logger | None = None) -> None:
 
 
 def send_email_alert(subject: str, body: str, logger: logging.Logger) -> None:
+    """Send an email notification if SMTP credentials are configured."""
     host = os.getenv("SMTP_HOST")
     port = int(os.getenv("SMTP_PORT", "0"))
     user = os.getenv("SMTP_USER")
@@ -77,11 +80,12 @@ def send_email_alert(subject: str, body: str, logger: logging.Logger) -> None:
             smtp.login(user, password)
             smtp.send_message(msg)
         logger.info("Email alert sent to %s", to_addr)
-    except Exception as exc:
+    except smtplib.SMTPException as exc:
         logger.warning("Failed to send email alert: %s", exc)
 
 
-def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger) -> None:
+def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger) -> None:  # pylint: disable=too-many-locals
+    """Write the dataframe to ``Crypto_Volume.xlsx`` with formatting."""
     df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
     df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
 
