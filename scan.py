@@ -129,7 +129,7 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
             idx = df.columns.get_loc("Funding Rate")
             worksheet.set_column(idx, idx, None, funding_format)
 
-        for col in range(1, 6):
+        for col in range(1, 7):
             col_letter = chr(ord("A") + col)
             cell_range = f"{col_letter}3:{col_letter}1048576"
             worksheet.conditional_format(cell_range, {

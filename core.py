@@ -198,13 +198,7 @@ def process_symbol(symbol: str, logger: logging.Logger) -> dict:
     if not klines:
         logger.warning("%s skipped: No valid klines returned.", symbol)
         return None
-    rate, ts = get_funding_rate(symbol)
-    if ts:
-        ts_str = datetime.fromtimestamp(ts / 1000, timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S UTC"
-        )
-    else:
-        ts_str = ""
+    rate, _ = get_funding_rate(symbol)
     return {
         "Symbol": symbol,
         "5M": round(calculate_volume_change(klines, 5), 4),
@@ -213,5 +207,4 @@ def process_symbol(symbol: str, logger: logging.Logger) -> dict:
         "1H": round(calculate_volume_change(klines, 60), 4),
         "4H": round(calculate_volume_change(klines, 240), 4),
         "Funding Rate": rate,
-        "Funding Rate Timestamp": ts_str,
     }

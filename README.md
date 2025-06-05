@@ -1,8 +1,7 @@
 # Bybit Volume Scanner
 
 This project scans Bybit USDT perpetual markets for unusual volume activity.
-The export also records each funding rate's fetch timestamp.
-The resulting spreadsheet now includes a column showing each pair's total 24​hr trading volume.
+The resulting spreadsheet includes each pair's latest funding rate and its total 24​hr trading volume.
 
 ## Installation
 
