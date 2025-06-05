@@ -92,6 +92,14 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
     df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
     df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
 
+    if "Funding Rate" in df.columns and "24h USD Volume" in df.columns:
+        cols = df.columns.tolist()
+        fr_idx = cols.index("Funding Rate")
+        vol_idx = cols.index("24h USD Volume")
+        if fr_idx < vol_idx:
+            cols[fr_idx], cols[vol_idx] = cols[vol_idx], cols[fr_idx]
+            df = df[cols]
+
     logger.info("Exporting data to Excel: Crypto_Volume.xlsx")
     wait_for_file_close("Crypto_Volume.xlsx", logger)
     with pd.ExcelWriter("Crypto_Volume.xlsx", engine="xlsxwriter") as writer:
@@ -129,7 +137,12 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
             idx = df.columns.get_loc("Funding Rate")
             worksheet.set_column(idx, idx, None, funding_format)
 
-        for col in range(1, 7):
+        columns_to_format = [
+            name for name in ["5M", "15M", "30M", "1H", "4H", "Funding Rate"]
+            if name in df.columns
+        ]
+        for name in columns_to_format:
+            col = df.columns.get_loc(name)
             col_letter = chr(ord("A") + col)
             cell_range = f"{col_letter}3:{col_letter}1048576"
             worksheet.conditional_format(cell_range, {
