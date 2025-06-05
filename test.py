@@ -8,6 +8,7 @@ import logging
 from unittest.mock import patch, MagicMock
 import core
 import scan
+import volume_math
 from volume_math import calculate_volume_change
 
 def test_get_tradeable_symbols_sorted_by_volume():
@@ -56,7 +57,6 @@ def test_fetch_recent_klines_insufficient():
         return MagicMock(status_code=200, json=lambda: {"result": {"list": []}})
 
     with patch("core.requests.get", side_effect=side_effect):
-        core.KLINE_CACHE.clear()
         result = core.fetch_recent_klines("BTCUSDT", total=5040)
         assert result == []
 
@@ -76,6 +76,16 @@ def test_setup_logging():
     assert isinstance(logger, logging.Logger)
     assert logger.name == "volume_logger"
     assert logger.level == logging.INFO
+
+
+def test_calculate_volume_change_cache_reuse():
+    one_block = [[str(i), "", "", "", "", "1"] for i in range(15)]
+    klines = one_block * 21
+    volume_math.SORTED_KLINES_CACHE.clear()
+    calculate_volume_change(klines, 15)
+    assert len(volume_math.SORTED_KLINES_CACHE) == 1
+    calculate_volume_change(klines, 60)
+    assert len(volume_math.SORTED_KLINES_CACHE) == 1
 
 def test_process_symbol_with_mocked_logger():
     """Ensure process_symbol runs with valid klines and mocked logger."""

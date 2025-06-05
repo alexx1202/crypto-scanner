@@ -15,8 +15,6 @@ import requests
 from tqdm import tqdm
 from volume_math import calculate_volume_change
 
-KLINE_CACHE = {}
-SORTED_KLINES_CACHE = {}
 
 def get_debug_logger() -> logging.Logger:
     """Return a memoized logger for debugging kline fetches."""
@@ -124,8 +122,6 @@ def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> 
     logger = get_debug_logger()
     main_logger = logging.getLogger("volume_logger")
 
-    if symbol in KLINE_CACHE:
-        return KLINE_CACHE[symbol][-total:]
 
     seen_chunks = set()
     consecutive_duplicates = 0
@@ -170,7 +166,6 @@ def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> 
         main_logger.warning("%s: Only %d klines returned, skipping.", symbol, len(all_klines))
         return []
 
-    KLINE_CACHE[symbol] = all_klines
     return all_klines[-total:]
 
 def process_symbol(symbol: str, logger: logging.Logger) -> dict:
