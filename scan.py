@@ -45,8 +45,8 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
     df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
     df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
 
-    logger.info("Exporting data to Excel: results.xlsx")
-    with pd.ExcelWriter("results.xlsx", engine="xlsxwriter") as writer:
+    logger.info("Exporting data to Excel: Crypto_Volume.xlsx")
+    with pd.ExcelWriter("Crypto_Volume.xlsx", engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False, sheet_name="Sheet1", startrow=1)
         worksheet = writer.sheets["Sheet1"]
 
@@ -122,7 +122,7 @@ def run_scan(logger: logging.Logger) -> None:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
 
     export_to_excel(pd.DataFrame(rows), [s for s, _ in all_symbols], logger)
-    logger.info("Export complete: results.xlsx")
+    logger.info("Export complete: Crypto_Volume.xlsx")
 
 def main() -> None:
     """Main entry point."""
