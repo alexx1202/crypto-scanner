@@ -86,7 +86,7 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
         })
         currency_format = writer.book.add_format({"num_format": "$#,##0.00"})
         percent_format = writer.book.add_format({"num_format": '0.00"%"'})
-        funding_format = writer.book.add_format({"num_format": '0.00000000"%"'})
+        funding_format = writer.book.add_format({"num_format": '0.0000000%'})
 
         if "24h USD Volume" in df.columns:
             col_idx = df.columns.get_loc("24h USD Volume")
