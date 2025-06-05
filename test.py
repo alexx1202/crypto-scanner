@@ -102,7 +102,6 @@ def test_get_funding_rate_success_timestamp():
     with patch("core.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = mock_data
-
     ts = int((datetime.now(timezone.utc) - timedelta(minutes=5)).timestamp() * 1000)
     mock_data = {
         "result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}
