@@ -1,9 +1,0 @@
-============================= test session starts =============================
-platform win32 -- Python 3.13.2, pytest-8.3.5, pluggy-1.5.0
-rootdir: C:\Users\User\OneDrive\Documents\CRYPTO\PYTHON\WORK_IN_PROGRESS\cryptoscanner
-plugins: mock-3.14.1
-collected 14 items
-
-test.py ..............
-
-============================= 14 passed in 1.51s ==============================
