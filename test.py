@@ -78,3 +78,15 @@ def test_setup_logging():
     assert isinstance(logger, logging.Logger)
     assert logger.name == "volume_logger"
     assert logger.level == logging.INFO
+
+
+def test_calculate_volume_change_cache_reuse():
+    one_block = [[str(i), "", "", "", "", "1"] for i in range(15)]
+    klines = one_block * 21
+    scan._sorted_klines_cache.clear()
+    scan.calculate_volume_change(klines, 15)
+    # After first call the cache should have a single entry keyed by id(klines)
+    assert len(scan._sorted_klines_cache) == 1
+    scan.calculate_volume_change(klines, 60)
+    # Cache should still contain only one entry
+    assert len(scan._sorted_klines_cache) == 1

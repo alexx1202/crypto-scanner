@@ -10,7 +10,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # pylint: disable=broad-exception-caught
 
-_kline_cache = {}
 _sorted_klines_cache = {}
 
 def get_auth_headers() -> dict:
@@ -39,8 +38,6 @@ def get_tradeable_symbols_sorted_by_volume() -> list:
         return []
 
 def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 30240) -> list:
-    if symbol in _kline_cache:
-        return _kline_cache[symbol][-total:]
 
     klines = []
     seen_chunks = set()
@@ -79,17 +76,14 @@ def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 30240) ->
         logger.warning("%s: Only %d klines returned, skipping.", symbol, len(klines))
         return []
 
-    _kline_cache[symbol] = klines
     return klines[-total:]
 
 def calculate_volume_change(klines: list, block_size: int) -> float:
     try:
-        cache_key = (id(klines), block_size)
-        if cache_key in _sorted_klines_cache:
-            sorted_klines = _sorted_klines_cache[cache_key]
-        else:
-            sorted_klines = sorted(klines, key=lambda k: int(k[0]))
-            _sorted_klines_cache[cache_key] = sorted_klines
+        cache_key = id(klines)
+        if cache_key not in _sorted_klines_cache:
+            _sorted_klines_cache[cache_key] = sorted(klines, key=lambda k: int(k[0]))
+        sorted_klines = _sorted_klines_cache[cache_key]
 
         blocks = [
             sorted_klines[i:i + block_size]
