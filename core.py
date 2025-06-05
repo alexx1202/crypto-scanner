@@ -66,7 +66,9 @@ def get_tradeable_symbols_sorted_by_volume() -> list:
         sorted_filtered = sorted(filtered, key=lambda x: x[1], reverse=True)
         return sorted_filtered
     except requests.RequestException as err:
-        print("[ERROR] Failed to fetch and sort symbols by volume: %s", err)
+        logging.getLogger("volume_logger").error(
+            "Failed to fetch and sort symbols by volume: %s", err
+        )
         return []
 
 def stable_chunk_hash(chunk: list) -> str:

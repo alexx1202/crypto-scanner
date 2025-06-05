@@ -29,14 +29,16 @@ def setup_logging() -> logging.Logger:
 
     return logger
 
-def clean_existing_excels() -> None:
+def clean_existing_excels(logger: logging.Logger | None = None) -> None:
     """Delete any existing .xlsx files in the working directory."""
+    if logger is None:
+        logger = logging.getLogger("volume_logger")
     for file in os.listdir():
         if file.endswith(".xlsx"):
             try:
                 os.remove(file)
             except OSError:
-                print("[WARNING] Failed to delete %s", file)
+                logger.warning("Failed to delete %s", file)
 
 def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger) -> None:
     """Export results to Excel with formatting."""
@@ -111,7 +113,7 @@ def run_scan(logger: logging.Logger) -> None:
         logger.warning("No symbols retrieved. Skipping export.")
         return
 
-    clean_existing_excels()
+    clean_existing_excels(logger)
     logger.info("Scanning symbols in parallel...")
 
     rows, failed = scan_and_collect_results([s for s, _ in all_symbols], logger)
