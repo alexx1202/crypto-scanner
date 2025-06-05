@@ -68,8 +68,22 @@ def send_email_alert(subject: str, body: str, logger: logging.Logger) -> None:
     to_addr = os.getenv("EMAIL_TO", "alexx1202@gmail.com")
     from_addr = os.getenv("EMAIL_FROM", user or "")
 
-    if not all([host, port, user, password, to_addr]):
-        logger.info("Email not configured. Skipping email alert.")
+    missing = [
+        name
+        for name, val in [
+            ("SMTP_HOST", host),
+            ("SMTP_PORT", port),
+            ("SMTP_USER", user),
+            ("SMTP_PASS", password),
+            ("EMAIL_TO", to_addr),
+        ]
+        if not val
+    ]
+    if missing:
+        logger.info(
+            "Email not configured. Missing %s. Skipping email alert.",
+            ", ".join(missing),
+        )
         return
 
     msg = EmailMessage()
