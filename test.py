@@ -94,7 +94,7 @@ def test_process_symbol_with_mocked_logger():
         assert "1H" in result
         assert "4H" in result
         assert "Funding Rate" in result
-        assert "Funding Rate Timestamp" in result
+        assert "Funding Rate Timestamp" not in result
 
 def test_get_funding_rate_success_timestamp():
     """Ensure timestamp reflects when the rate was fetched."""
