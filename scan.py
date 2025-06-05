@@ -68,25 +68,31 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
         df.to_excel(writer, index=False, sheet_name="Sheet1", startrow=1)
         worksheet = writer.sheets["Sheet1"]
 
+        header_format = writer.book.add_format({"bold": True})
         worksheet.merge_range(
-            "B1:F1",
+            "B1:G1",
             "% Distance Below or Above 20 Bar Moving Average Volume Indicator",
+            header_format,
         )
         worksheet.freeze_panes(2, 0)
 
         red_format = writer.book.add_format({
-            "bg_color": "#FFC7CE", "font_color": "#9C0006"
+            "bg_color": "#FFC7CE",
+            "font_color": "#9C0006",
         })
         green_format = writer.book.add_format({
-            "bg_color": "#C6EFCE", "font_color": "#006100"
+            "bg_color": "#C6EFCE",
+            "font_color": "#006100",
         })
-        accounting_format = writer.book.add_format({
-            "num_format": "_(* #,##0_);_(* (#,##0);_(* \"-\"??_);_(@_)"
-        })
+        currency_format = writer.book.add_format({"num_format": "$#,##0.00"})
+        percent_format = writer.book.add_format({"num_format": '0.00"%"'})
 
-        if "24h Volume" in df.columns:
-            col_idx = df.columns.get_loc("24h Volume")
-            worksheet.set_column(col_idx, col_idx, None, accounting_format)
+        if "24h USD Volume" in df.columns:
+            col_idx = df.columns.get_loc("24h USD Volume")
+            worksheet.set_column(col_idx, col_idx, None, currency_format)
+
+        for col in range(1, 6):
+            worksheet.set_column(col, col, None, percent_format)
 
         for col in range(1, 6):
             col_letter = chr(ord("A") + col)
@@ -145,7 +151,7 @@ def run_scan(logger: logging.Logger) -> None:
 
     volume_map = dict(all_symbols)
     for row in rows:
-        row["24h Volume"] = volume_map.get(row["Symbol"], 0)
+        row["24h USD Volume"] = volume_map.get(row["Symbol"], 0)
 
     if failed:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
