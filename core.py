@@ -183,9 +183,9 @@ def process_symbol(symbol: str, logger: logging.Logger) -> dict:
         return None
     return {
         "Symbol": symbol,
-        "5m Volume % Change": round(calculate_volume_change(klines, 5), 4),
-        "15m Volume % Change": round(calculate_volume_change(klines, 15), 4),
-        "30m Volume % Change": round(calculate_volume_change(klines, 30), 4),
-        "1h Volume % Change": round(calculate_volume_change(klines, 60), 4),
-        "4h Volume % Change": round(calculate_volume_change(klines, 240), 4),
+        "5M": round(calculate_volume_change(klines, 5), 4),
+        "15M": round(calculate_volume_change(klines, 15), 4),
+        "30M": round(calculate_volume_change(klines, 30), 4),
+        "1H": round(calculate_volume_change(klines, 60), 4),
+        "4H": round(calculate_volume_change(klines, 240), 4),
     }
