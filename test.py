@@ -119,17 +119,17 @@ def test_get_funding_rate_failure_timestamp():
         assert before <= ts_returned <= after
 
 def test_get_funding_rate_old_data():
-    """Return funding rate even when data timestamp is old."""
+    """Return funding rate timestamp from API when provided."""
     ts = int((datetime.now(timezone.utc) - timedelta(minutes=5)).timestamp() * 1000)
-    mock_data = {"result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}}
+    mock_data = {
+        "result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}
+    }
     with patch("core.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = mock_data
-        before = int(datetime.now(timezone.utc).timestamp() * 1000)
         rate, ts_returned = core.get_funding_rate("BTCUSDT")
-        after = int(datetime.now(timezone.utc).timestamp() * 1000)
         assert rate == 0.0001
-        assert before <= ts_returned <= after
+        assert ts_returned == ts
 
 # -------------------------------
 # Tests for volume_math.calculate_volume_change
