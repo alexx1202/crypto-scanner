@@ -58,7 +58,7 @@ def clean_existing_excels(logger: logging.Logger | None = None) -> None:
                 logger.warning("Failed to delete %s", file)
 
 def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger) -> None:
-    """Export results to Excel with formatting."""
+    """Export results to Excel with formatting."""  # pylint: disable=too-many-locals
     df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
     df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
 
@@ -70,7 +70,7 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
 
         header_format = writer.book.add_format({"bold": True})
         worksheet.merge_range(
-            "B1:G1",
+            "B1:H1",
             "% Distance Below or Above 20 Bar Moving Average Volume Indicator",
             header_format,
         )
@@ -86,6 +86,7 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
         })
         currency_format = writer.book.add_format({"num_format": "$#,##0.00"})
         percent_format = writer.book.add_format({"num_format": '0.00"%"'})
+        funding_format = writer.book.add_format({"num_format": '0.00000000"%"'})
 
         if "24h USD Volume" in df.columns:
             col_idx = df.columns.get_loc("24h USD Volume")
@@ -93,6 +94,10 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
 
         for col in range(1, 6):
             worksheet.set_column(col, col, None, percent_format)
+
+        if "Funding Rate" in df.columns:
+            idx = df.columns.get_loc("Funding Rate")
+            worksheet.set_column(idx, idx, None, funding_format)
 
         for col in range(1, 6):
             col_letter = chr(ord("A") + col)

@@ -6,6 +6,7 @@ and Excel export behavior. Supports pytest + pylint 10/10 compliance.
 
 import logging
 from unittest.mock import patch, MagicMock
+from datetime import datetime, timezone, timedelta
 import core
 import scan
 from volume_math import calculate_volume_change
@@ -91,6 +92,27 @@ def test_process_symbol_with_mocked_logger():
         assert "30M" in result
         assert "1H" in result
         assert "4H" in result
+        assert "Funding Rate" in result
+
+def test_get_funding_rate_recent():
+    """Return funding rate when timestamp is within 3 minutes."""
+    ts = int(datetime.now(timezone.utc).timestamp() * 1000)
+    mock_data = {"result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}}
+    with patch("core.requests.get") as mock_get:
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_data
+        rate = core.get_funding_rate("BTCUSDT")
+        assert rate == 0.0001
+
+def test_get_funding_rate_too_old():
+    """Return None when funding rate data is stale."""
+    ts = int((datetime.now(timezone.utc) - timedelta(minutes=5)).timestamp() * 1000)
+    mock_data = {"result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}}
+    with patch("core.requests.get") as mock_get:
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_data
+        rate = core.get_funding_rate("BTCUSDT")
+        assert rate is None
 
 # -------------------------------
 # Tests for volume_math.calculate_volume_change
