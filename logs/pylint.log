@@ -1,18 +1,4 @@
-************* Module scan
-scan.py:168:0: C0301: Line too long (103/100) (line-too-long)
-scan.py:1:0: C0114: Missing module docstring (missing-module-docstring)
-scan.py:16:0: C0116: Missing function or method docstring (missing-function-docstring)
-scan.py:22:0: C0116: Missing function or method docstring (missing-function-docstring)
-scan.py:41:0: C0116: Missing function or method docstring (missing-function-docstring)
-scan.py:41:0: R0914: Too many local variables (16/15) (too-many-locals)
-scan.py:85:0: C0116: Missing function or method docstring (missing-function-docstring)
-scan.py:117:0: C0116: Missing function or method docstring (missing-function-docstring)
-scan.py:133:0: C0116: Missing function or method docstring (missing-function-docstring)
-scan.py:141:0: C0116: Missing function or method docstring (missing-function-docstring)
-scan.py:152:0: C0116: Missing function or method docstring (missing-function-docstring)
-scan.py:152:0: R0914: Too many local variables (16/15) (too-many-locals)
-scan.py:9:0: C0411: standard import "concurrent.futures.ThreadPoolExecutor" should be placed before third party imports "pandas", "requests", "tqdm.tqdm" (wrong-import-order)
 
-------------------------------------------------------------------
-Your code has been rated at 9.10/10 (previous run: 9.10/10, +0.00)
+--------------------------------------------------------------------
+Your code has been rated at 10.00/10 (previous run: 10.00/10, +0.00)
 
