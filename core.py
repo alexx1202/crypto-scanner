@@ -18,26 +18,29 @@ from volume_math import calculate_volume_change
 KLINE_CACHE = {}
 SORTED_KLINES_CACHE = {}
 
+# Directory where all log files are written
+LOG_DIR = os.path.join(
+    os.path.expanduser("~"),
+    "OneDrive",
+    "Documents",
+    "CRYPTO",
+    "PYTHON",
+    "WORK_IN_PROGRESS",
+    "cryptoscanner",
+    "logs",
+)
+
 def get_debug_logger() -> logging.Logger:
     """Return a memoized logger for debugging kline fetches."""
     if not hasattr(get_debug_logger, "cached_logger"):
         logger = logging.getLogger("debug_logger")
         logger.setLevel(logging.DEBUG)
-        home = os.path.expanduser("~")
-        log_path = os.path.join(
-            home,
-            "OneDrive",
-            "Documents",
-            "CRYPTO",
-            "PYTHON",
-            "WORK_IN_PROGRESS",
-            "cryptoscanner",
-            "logs",
-            "klines_debug.log",
+        os.makedirs(LOG_DIR, exist_ok=True)
+        log_path = os.path.join(LOG_DIR, "scanlog.txt")
+        handler = logging.FileHandler(log_path, mode="a")
+        handler.setFormatter(
+            logging.Formatter("[%(levelname)s] %(asctime)s %(message)s")
         )
-        os.makedirs(os.path.dirname(log_path), exist_ok=True)
-        handler = logging.FileHandler(log_path, mode="w")
-        handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s"))
         logger.addHandler(handler)
         get_debug_logger.cached_logger = logger
     return get_debug_logger.cached_logger

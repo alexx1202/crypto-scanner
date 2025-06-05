@@ -19,7 +19,9 @@ def setup_logging() -> logging.Logger:
     logger.handlers.clear()
     fmt = logging.Formatter("[%(levelname)s] %(asctime)s %(message)s")
 
-    fh = logging.FileHandler("scanlog.txt", mode="w")
+    os.makedirs(core.LOG_DIR, exist_ok=True)
+    log_path = os.path.join(core.LOG_DIR, "scanlog.txt")
+    fh = logging.FileHandler(log_path, mode="w")
     fh.setFormatter(fmt)
     logger.addHandler(fh)
 
