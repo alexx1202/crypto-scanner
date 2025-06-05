@@ -31,3 +31,14 @@ python group_logs.py /path/to/scanlog.txt
 
 The script writes a new file with `_grouped` appended to the original name.
 
+## Log Files
+
+All logs are written to:
+
+```
+~/OneDrive/Documents/CRYPTO/PYTHON/WORK_IN_PROGRESS/cryptoscanner/logs
+```
+
+`scan.py` writes `scanlog.txt` here, while `run_checks.py` creates
+`pylint.log` and `pytest.log` in the same directory.
+
