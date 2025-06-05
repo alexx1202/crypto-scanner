@@ -7,6 +7,7 @@ and Excel export behavior. Supports pytest + pylint 10/10 compliance.
 import logging
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone, timedelta
+import os
 import core
 import scan
 from volume_math import calculate_volume_change
@@ -193,3 +194,32 @@ def test_calculate_volume_change_cache_usage():
 
     calculate_volume_change(klines, 5)
     assert len(core.SORTED_KLINES_CACHE) == 1
+
+
+def test_send_email_alert_sends_message():
+    """send_email_alert logs in and sends a message when configured."""
+    logger = MagicMock()
+    env = {
+        "SMTP_HOST": "smtp.example.com",
+        "SMTP_PORT": "587",
+        "SMTP_USER": "user",
+        "SMTP_PASS": "pass",
+        "EMAIL_TO": "to@example.com",
+        "EMAIL_FROM": "from@example.com",
+    }
+    with patch.dict(os.environ, env, clear=True), \
+         patch("scan.smtplib.SMTP") as mock_smtp:
+        smtp_instance = mock_smtp.return_value.__enter__.return_value
+        scan.send_email_alert("sub", "body", logger)
+        smtp_instance.starttls.assert_called_once()
+        smtp_instance.login.assert_called_once_with("user", "pass")
+        smtp_instance.send_message.assert_called_once()
+
+
+def test_send_email_alert_skips_if_missing_env():
+    """No SMTP connection attempted when config vars are absent."""
+    logger = MagicMock()
+    with patch.dict(os.environ, {}, clear=True), \
+         patch("scan.smtplib.SMTP") as mock_smtp:
+        scan.send_email_alert("sub", "body", logger)
+        mock_smtp.assert_not_called()
