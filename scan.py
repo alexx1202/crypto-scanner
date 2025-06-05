@@ -44,10 +44,26 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
     df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
 
     logger.info("Exporting data to Excel: results.xlsx")
+
+    renamed_df = df.rename(
+        columns={
+            "5m Volume % Change": "5M",
+            "15m Volume % Change": "15M",
+            "30m Volume % Change": "30M",
+            "1h Volume % Change": "1H",
+            "4h Volume % Change": "4H",
+        }
+    )
+
     with pd.ExcelWriter("results.xlsx", engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False, sheet_name="Sheet1")
+        renamed_df.to_excel(writer, index=False, sheet_name="Sheet1", startrow=1)
         worksheet = writer.sheets["Sheet1"]
-        worksheet.freeze_panes(1, 0)
+
+        worksheet.merge_range(
+            "B1:F1",
+            "% Distance Below or Above 20 Bar Moving Average Volume Indicator",
+        )
+        worksheet.freeze_panes(2, 0)
 
         red_format = writer.book.add_format({
             "bg_color": "#FFC7CE", "font_color": "#9C0006"
@@ -58,7 +74,7 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
 
         for col in range(1, 6):
             col_letter = chr(ord("A") + col)
-            cell_range = f"{col_letter}2:{col_letter}1048576"
+            cell_range = f"{col_letter}3:{col_letter}1048576"
             worksheet.conditional_format(cell_range, {
                 "type": "cell",
                 "criteria": ">",
