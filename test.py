@@ -84,7 +84,8 @@ def test_setup_logging():
 def test_process_symbol_with_mocked_logger():
     """Ensure process_symbol runs with valid klines and mocked logger."""
     mock_klines = [[str(i), "", "", "", "", "2"] for i in range(5040)]
-    with patch("core.fetch_recent_klines", return_value=mock_klines):
+    with patch("core.fetch_recent_klines", return_value=mock_klines), \
+         patch("core.get_open_interest_change", return_value=5.0):
         result = core.process_symbol("BTCUSDT", MagicMock())
         assert isinstance(result, dict)
         assert result["Symbol"] == "BTCUSDT"
@@ -94,6 +95,7 @@ def test_process_symbol_with_mocked_logger():
         assert "1H" in result
         assert "4H" in result
         assert "Funding Rate" in result
+        assert "Open Interest Change" in result
         assert "Funding Rate Timestamp" not in result
 
 def test_get_funding_rate_success_timestamp():
@@ -109,6 +111,22 @@ def test_get_funding_rate_success_timestamp():
         rate, ts_returned = core.get_funding_rate("BTCUSDT")
         assert rate == 0.0001
         assert ts_returned == ts
+
+def test_get_open_interest_change():
+    """Calculate correct open interest percentage change."""
+    mock_data = {
+        "result": {
+            "list": [
+                {"openInterest": "100"},
+                {"openInterest": "110"}
+            ]
+        }
+    }
+    with patch("core.requests.get") as mock_get:
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_data
+        change = core.get_open_interest_change("BTCUSDT")
+        assert round(change, 4) == 10.0
 
 # -------------------------------
 # Tests for volume_math.calculate_volume_change

@@ -192,6 +192,30 @@ def get_funding_rate(symbol: str) -> tuple[float, int]:
         )
         return 0.0, 0
 
+def get_open_interest_change(symbol: str) -> float:
+    """Return the percentage change in open interest over the last 24 hours."""
+    url = (
+        "https://api.bybit.com/v5/market/open-interest"
+        f"?category=linear&symbol={symbol}&interval=1h&limit=24"
+    )
+    try:
+        response = requests.get(url, headers=get_auth_headers(), timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        rows = data.get("result", {}).get("list", [])
+        if len(rows) < 2:
+            return 0.0
+        first = float(rows[0].get("openInterest", 0))
+        last = float(rows[-1].get("openInterest", 0))
+        if first == 0:
+            return 0.0
+        return ((last - first) / first) * 100
+    except (KeyError, ValueError, IndexError, requests.RequestException):
+        logging.getLogger("volume_logger").warning(
+            "Failed to fetch open interest for %s", symbol
+        )
+        return 0.0
+
 def process_symbol(symbol: str, logger: logging.Logger) -> dict:
     """Fetch klines and compute volume changes for 5m, 15m, 30m, 1h, and 4h blocks."""
     klines = fetch_recent_klines(symbol)
@@ -199,6 +223,7 @@ def process_symbol(symbol: str, logger: logging.Logger) -> dict:
         logger.warning("%s skipped: No valid klines returned.", symbol)
         return None
     rate, _ = get_funding_rate(symbol)
+    oi_change = get_open_interest_change(symbol)
     return {
         "Symbol": symbol,
         "5M": round(calculate_volume_change(klines, 5), 4),
@@ -207,4 +232,5 @@ def process_symbol(symbol: str, logger: logging.Logger) -> dict:
         "1H": round(calculate_volume_change(klines, 60), 4),
         "4H": round(calculate_volume_change(klines, 240), 4),
         "Funding Rate": rate,
+        "Open Interest Change": round(oi_change, 4),
     }
