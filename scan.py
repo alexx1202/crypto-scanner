@@ -12,6 +12,20 @@ import pandas as pd
 from tqdm import tqdm
 import core
 
+def wait_for_file_close(filename: str, logger: logging.Logger) -> None:
+    """Pause execution until the given file can be opened for writing."""
+    if not os.path.exists(filename):
+        return
+    while True:
+        try:
+            with open(filename, "a"):
+                break
+        except OSError:
+            logger.warning(
+                "%s is still open. Please close it before continuing.", filename
+            )
+            input("Press Enter after closing the file...")
+
 def setup_logging() -> logging.Logger:
     """Configure and return a logger writing to file and stdout."""
     logger = logging.getLogger("volume_logger")
@@ -37,6 +51,7 @@ def clean_existing_excels(logger: logging.Logger | None = None) -> None:
         logger = logging.getLogger("volume_logger")
     for file in os.listdir():
         if file.endswith(".xlsx"):
+            wait_for_file_close(file, logger)
             try:
                 os.remove(file)
             except OSError:
@@ -48,6 +63,7 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
     df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
 
     logger.info("Exporting data to Excel: Crypto_Volume.xlsx")
+    wait_for_file_close("Crypto_Volume.xlsx", logger)
     with pd.ExcelWriter("Crypto_Volume.xlsx", engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False, sheet_name="Sheet1", startrow=1)
         worksheet = writer.sheets["Sheet1"]
