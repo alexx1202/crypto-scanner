@@ -114,7 +114,7 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
 
         header_format = writer.book.add_format({"bold": True})
         worksheet.merge_range(
-            "B1:H1",
+            "B1:I1",
             "% Distance Below or Above 20 Bar Moving Average Volume Indicator",
             header_format,
         )
@@ -136,14 +136,14 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
             col_idx = df.columns.get_loc("24h USD Volume")
             worksheet.set_column(col_idx, col_idx, None, currency_format)
 
-        for col in range(1, 6):
+        for col in list(range(1, 6)) + [df.columns.get_loc("Open Interest Change")]:
             worksheet.set_column(col, col, None, percent_format)
 
         if "Funding Rate" in df.columns:
             idx = df.columns.get_loc("Funding Rate")
             worksheet.set_column(idx, idx, None, funding_format)
 
-        for col in range(1, 7):
+        for col in range(1, 8):
             col_letter = chr(ord("A") + col)
             cell_range = f"{col_letter}3:{col_letter}1048576"
             worksheet.conditional_format(cell_range, {
