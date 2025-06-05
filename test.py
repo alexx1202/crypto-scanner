@@ -98,13 +98,10 @@ def test_process_symbol_with_mocked_logger():
 
 def test_get_funding_rate_success_timestamp():
     """Ensure timestamp reflects when the rate was fetched."""
-    mock_data = {"result": {"list": [{"fundingRate": "0.0001"}]}}
-    with patch("core.requests.get") as mock_get:
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = mock_data
     ts = int((datetime.now(timezone.utc) - timedelta(minutes=5)).timestamp() * 1000)
     mock_data = {
-        "result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}
+        "result": {"list": [{"fundingRate": "0.0001"}]},
+        "time": str(ts)
     }
     with patch("core.requests.get") as mock_get:
         mock_get.return_value.status_code = 200

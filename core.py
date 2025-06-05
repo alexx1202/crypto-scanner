@@ -174,8 +174,8 @@ def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> 
 def get_funding_rate(symbol: str) -> tuple[float, int]:
     """Return latest funding rate and timestamp for a symbol."""
     url = (
-        "https://api.bybit.com/v5/market/funding/history"
-        f"?symbol={symbol}&category=linear&limit=1"
+        "https://api.bybit.com/v5/market/tickers"
+        f"?category=linear&symbol={symbol}"
     )
     fetch_time = int(datetime.now(timezone.utc).timestamp() * 1000)
     try:
@@ -184,7 +184,7 @@ def get_funding_rate(symbol: str) -> tuple[float, int]:
         data = response.json()
         item = data.get("result", {}).get("list", [])[0]
         rate = float(item.get("fundingRate", 0))
-        ts = int(item.get("fundingRateTimestamp", fetch_time))
+        ts = int(data.get("time", fetch_time))
         return rate, ts
     except (IndexError, ValueError, KeyError, requests.RequestException):
         logging.getLogger("volume_logger").warning(
