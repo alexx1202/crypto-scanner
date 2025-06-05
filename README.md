@@ -52,7 +52,7 @@ SMTP_HOST   # SMTP server hostname
 SMTP_PORT   # SMTP server port
 SMTP_USER   # Username for authentication
 SMTP_PASS   # Password for authentication
-EMAIL_TO    # Recipient email address
+EMAIL_TO    # Recipient email address (defaults to alexx1202@gmail.com)
 EMAIL_FROM  # Sender address (defaults to SMTP_USER)
 ```
 

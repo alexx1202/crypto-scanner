@@ -65,7 +65,7 @@ def send_email_alert(subject: str, body: str, logger: logging.Logger) -> None:
     port = int(os.getenv("SMTP_PORT", "0"))
     user = os.getenv("SMTP_USER")
     password = os.getenv("SMTP_PASS")
-    to_addr = os.getenv("EMAIL_TO")
+    to_addr = os.getenv("EMAIL_TO", "alexx1202@gmail.com")
     from_addr = os.getenv("EMAIL_FROM", user or "")
 
     if not all([host, port, user, password, to_addr]):
