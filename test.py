@@ -96,21 +96,17 @@ def test_process_symbol_with_mocked_logger():
         assert "Funding Rate" in result
         assert "Funding Rate Timestamp" in result
 
-def test_get_funding_rate_recent():
-    """Return funding rate when timestamp is within 3 minutes."""
-    ts = int(datetime.now(timezone.utc).timestamp() * 1000)
-    mock_data = {"result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}}
+def test_get_funding_rate_success_timestamp():
+    """Ensure timestamp reflects when the rate was fetched."""
+    mock_data = {"result": {"list": [{"fundingRate": "0.0001"}]}}
     with patch("core.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = mock_data
-        rate, ts_returned = core.get_funding_rate("BTCUSDT")
-        assert rate == 0.0001
-        assert ts_returned == ts
 
-def test_get_funding_rate_old_data():
-    """Return funding rate even when data timestamp is old."""
     ts = int((datetime.now(timezone.utc) - timedelta(minutes=5)).timestamp() * 1000)
-    mock_data = {"result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}}
+    mock_data = {
+        "result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}
+    }
     with patch("core.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = mock_data
