@@ -68,8 +68,22 @@ def send_email_alert(subject: str, body: str, logger: logging.Logger) -> None:
     to_addr = os.getenv("EMAIL_TO", "alexx1202@gmail.com")
     from_addr = os.getenv("EMAIL_FROM", user or "")
 
-    if not all([host, port, user, password, to_addr]):
-        logger.info("Email not configured. Skipping email alert.")
+    missing = [
+        name
+        for name, val in [
+            ("SMTP_HOST", host),
+            ("SMTP_PORT", port),
+            ("SMTP_USER", user),
+            ("SMTP_PASS", password),
+            ("EMAIL_TO", to_addr),
+        ]
+        if not val
+    ]
+    if missing:
+        logger.info(
+            "Email not configured. Missing %s. Skipping email alert.",
+            ", ".join(missing),
+        )
         return
 
     msg = EmailMessage()
@@ -92,6 +106,14 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
     df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
     df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
 
+    if "Funding Rate" in df.columns and "24h USD Volume" in df.columns:
+        cols = df.columns.tolist()
+        fr_idx = cols.index("Funding Rate")
+        vol_idx = cols.index("24h USD Volume")
+        if fr_idx < vol_idx:
+            cols[fr_idx], cols[vol_idx] = cols[vol_idx], cols[fr_idx]
+            df = df[cols]
+
     logger.info("Exporting data to Excel: Crypto_Volume.xlsx")
     wait_for_file_close("Crypto_Volume.xlsx", logger)
     with pd.ExcelWriter("Crypto_Volume.xlsx", engine="xlsxwriter") as writer:
@@ -99,8 +121,9 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
         worksheet = writer.sheets["Sheet1"]
 
         header_format = writer.book.add_format({"bold": True})
+        span = "B1:I1" if "Open Interest Change" in df.columns else "B1:H1"
         worksheet.merge_range(
-            "B1:H1",
+            span,
             "% Distance Below or Above 20 Bar Moving Average Volume Indicator",
             header_format,
         )
@@ -122,14 +145,34 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
             col_idx = df.columns.get_loc("24h USD Volume")
             worksheet.set_column(col_idx, col_idx, None, currency_format)
 
-        for col in range(1, 6):
+        percent_columns = [
+            name
+            for name in ["5M", "15M", "30M", "1H", "4H", "Open Interest Change"]
+            if name in df.columns
+        ]
+        for name in percent_columns:
+            col = df.columns.get_loc(name)
             worksheet.set_column(col, col, None, percent_format)
 
         if "Funding Rate" in df.columns:
             idx = df.columns.get_loc("Funding Rate")
             worksheet.set_column(idx, idx, None, funding_format)
 
-        for col in range(1, 7):
+        columns_to_format = [
+            name
+            for name in [
+                "5M",
+                "15M",
+                "30M",
+                "1H",
+                "4H",
+                "Open Interest Change",
+                "Funding Rate",
+            ]
+            if name in df.columns
+        ]
+        for name in columns_to_format:
+            col = df.columns.get_loc(name)
             col_letter = chr(ord("A") + col)
             cell_range = f"{col_letter}3:{col_letter}1048576"
             worksheet.conditional_format(cell_range, {

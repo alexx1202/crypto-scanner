@@ -8,6 +8,7 @@ import logging
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone, timedelta
 import os
+import pandas as pd
 import core
 import scan
 from volume_math import calculate_volume_change
@@ -84,7 +85,8 @@ def test_setup_logging():
 def test_process_symbol_with_mocked_logger():
     """Ensure process_symbol runs with valid klines and mocked logger."""
     mock_klines = [[str(i), "", "", "", "", "2"] for i in range(5040)]
-    with patch("core.fetch_recent_klines", return_value=mock_klines):
+    with patch("core.fetch_recent_klines", return_value=mock_klines), \
+         patch("core.get_open_interest_change", return_value=5.0):
         result = core.process_symbol("BTCUSDT", MagicMock())
         assert isinstance(result, dict)
         assert result["Symbol"] == "BTCUSDT"
@@ -94,6 +96,7 @@ def test_process_symbol_with_mocked_logger():
         assert "1H" in result
         assert "4H" in result
         assert "Funding Rate" in result
+        assert "Open Interest Change" in result
         assert "Funding Rate Timestamp" not in result
 
 def test_get_funding_rate_success_timestamp():
@@ -109,6 +112,22 @@ def test_get_funding_rate_success_timestamp():
         rate, ts_returned = core.get_funding_rate("BTCUSDT")
         assert rate == 0.0001
         assert ts_returned == ts
+
+def test_get_open_interest_change():
+    """Calculate correct open interest percentage change."""
+    mock_data = {
+        "result": {
+            "list": [
+                {"openInterest": "100"},
+                {"openInterest": "110"}
+            ]
+        }
+    }
+    with patch("core.requests.get") as mock_get:
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_data
+        change = core.get_open_interest_change("BTCUSDT")
+        assert round(change, 4) == 10.0
 
 # -------------------------------
 # Tests for volume_math.calculate_volume_change
@@ -215,3 +234,34 @@ def test_send_email_alert_skips_if_missing_env():
          patch("scan.smtplib.SMTP") as mock_smtp:
         scan.send_email_alert("sub", "body", logger)
         mock_smtp.assert_not_called()
+
+
+def test_export_to_excel_swaps_column_order():
+    """24h volume column should precede funding rate in exported sheet."""
+    df = pd.DataFrame([
+        {
+            "Symbol": "BTCUSDT",
+            "Funding Rate": 0.001,
+            "24h USD Volume": 1000,
+            "5M": 1,
+            "Open Interest Change": 2,
+        }
+    ])
+    logger = MagicMock()
+    captured = {}
+    with patch("scan.pd.ExcelWriter") as mock_writer, \
+         patch("scan.wait_for_file_close"), \
+         patch("pandas.DataFrame.to_excel", autospec=True) as mock_to_excel:
+        writer = MagicMock()
+        writer.book.add_format.return_value = MagicMock()
+        writer.sheets = {"Sheet1": MagicMock()}
+        mock_writer.return_value.__enter__.return_value = writer
+
+        def capture(self, *args, **kwargs):  # pylint: disable=unused-argument
+            captured["cols"] = list(self.columns)
+
+        mock_to_excel.side_effect = capture
+
+        scan.export_to_excel(df, ["BTCUSDT"], logger)
+        cols = captured.get("cols")
+        assert cols.index("24h USD Volume") < cols.index("Funding Rate")
