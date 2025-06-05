@@ -6,7 +6,8 @@ and Excel export behavior. Supports pytest + pylint 10/10 compliance.
 
 import logging
 from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
+import requests
 import core
 import scan
 from volume_math import calculate_volume_change
@@ -95,27 +96,26 @@ def test_process_symbol_with_mocked_logger():
         assert "Funding Rate" in result
         assert "Funding Rate Timestamp" in result
 
-def test_get_funding_rate_recent():
-    """Return funding rate when timestamp is within 3 minutes."""
-    ts = int(datetime.now(timezone.utc).timestamp() * 1000)
-    mock_data = {"result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}}
+def test_get_funding_rate_success_timestamp():
+    """Ensure timestamp reflects when the rate was fetched."""
+    mock_data = {"result": {"list": [{"fundingRate": "0.0001"}]}}
     with patch("core.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = mock_data
+        before = int(datetime.now(timezone.utc).timestamp() * 1000)
         rate, ts_returned = core.get_funding_rate("BTCUSDT")
+        after = int(datetime.now(timezone.utc).timestamp() * 1000)
         assert rate == 0.0001
-        assert ts_returned == ts
+        assert before <= ts_returned <= after
 
-def test_get_funding_rate_old_data():
-    """Return funding rate even when data timestamp is old."""
-    ts = int((datetime.now(timezone.utc) - timedelta(minutes=5)).timestamp() * 1000)
-    mock_data = {"result": {"list": [{"fundingRate": "0.0001", "fundingRateTimestamp": str(ts)}]}}
-    with patch("core.requests.get") as mock_get:
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = mock_data
+def test_get_funding_rate_failure_timestamp():
+    """Even on failure, a fetch timestamp is returned."""
+    with patch("core.requests.get", side_effect=requests.RequestException):
+        before = int(datetime.now(timezone.utc).timestamp() * 1000)
         rate, ts_returned = core.get_funding_rate("BTCUSDT")
-        assert rate == 0.0001
-        assert ts_returned == ts
+        after = int(datetime.now(timezone.utc).timestamp() * 1000)
+        assert rate is None
+        assert before <= ts_returned <= after
 
 # -------------------------------
 # Tests for volume_math.calculate_volume_change
