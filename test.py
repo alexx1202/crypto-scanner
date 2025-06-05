@@ -154,3 +154,15 @@ def test_calculate_volume_change_4h():
     klines = (baseline * 20) + spike
     result = calculate_volume_change(klines, 240)
     assert result > 400
+
+
+def test_calculate_volume_change_cache_usage():
+    """Ensure sorted klines are cached and reused for identical objects."""
+    core.SORTED_KLINES_CACHE.clear()
+    klines = [[str(i), "", "", "", "", "1"] for i in range(105)]
+
+    calculate_volume_change(klines, 5)
+    assert len(core.SORTED_KLINES_CACHE) == 1
+
+    calculate_volume_change(klines, 5)
+    assert len(core.SORTED_KLINES_CACHE) == 1

@@ -1,9 +1,17 @@
 """Volume math module for calculating percentage volume change across kline blocks."""
 
+import core
+
+
 def calculate_volume_change(klines: list, block_size: int) -> float:
     """Calculate % volume change for the latest block vs. previous 20 blocks."""
     try:
-        sorted_klines = sorted(klines, key=lambda k: int(k[0]))
+        k_id = id(klines)
+        if k_id in core.SORTED_KLINES_CACHE:
+            sorted_klines = core.SORTED_KLINES_CACHE[k_id]
+        else:
+            sorted_klines = sorted(klines, key=lambda k: int(k[0]))
+            core.SORTED_KLINES_CACHE[k_id] = sorted_klines
 
         blocks = [
             sorted_klines[i:i + block_size]
