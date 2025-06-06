@@ -128,8 +128,14 @@ def send_push_notification(title: str, message: str, logger: logging.Logger) -> 
         logger.warning("Failed to send push notification: %s", exc)
 
 
-def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger) -> None:  # pylint: disable=too-many-locals
-    """Write the dataframe to ``Crypto_Volume.xlsx`` with formatting."""
+def export_to_excel(
+    df: pd.DataFrame,
+    symbol_order: list,
+    logger: logging.Logger,
+    filename: str = "Crypto_Volume.xlsx",
+) -> None:
+    # pylint: disable=too-many-locals
+    """Write ``df`` to ``filename`` with formatting."""
     df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
     df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
 
@@ -141,9 +147,9 @@ def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger
             cols[fr_idx], cols[vol_idx] = cols[vol_idx], cols[fr_idx]
             df = df[cols]
 
-    logger.info("Exporting data to Excel: Crypto_Volume.xlsx")
-    wait_for_file_close("Crypto_Volume.xlsx", logger)
-    with pd.ExcelWriter("Crypto_Volume.xlsx", engine="xlsxwriter") as writer:
+    logger.info("Exporting data to Excel: %s", filename)
+    wait_for_file_close(filename, logger)
+    with pd.ExcelWriter(filename, engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False, sheet_name="Sheet1", startrow=1)
         worksheet = writer.sheets["Sheet1"]
         header_format = writer.book.add_format({"bold": True})
@@ -275,11 +281,55 @@ def run_scan(logger: logging.Logger) -> None:
     )
 
 
+def run_correlation_scan(logger: logging.Logger) -> None:
+    """Compute correlation of each symbol to BTCUSDT and export."""
+    logger.info("Starting correlation scan...")
+    all_symbols = core.get_tradeable_symbols_sorted_by_volume()
+    if not all_symbols:
+        logger.warning("No symbols retrieved. Skipping correlation export.")
+        return
+
+    btc_klines = core.fetch_recent_klines("BTCUSDT")
+    rows: list[dict] = []
+    failed: list[str] = []
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        futures = {
+            executor.submit(
+                core.process_symbol_correlation, symbol, btc_klines, logger
+            ): symbol
+            for symbol, _ in all_symbols
+        }
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Correlation"):
+            symbol = futures[future]
+            result = future.result()
+            if result:
+                rows.append(result)
+            else:
+                failed.append(symbol)
+
+    if failed:
+        logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
+
+    export_to_excel(
+        pd.DataFrame(rows),
+        [s for s, _ in all_symbols],
+        logger,
+        filename="Crypto_Correlation.xlsx",
+    )
+    logger.info("Export complete: Crypto_Correlation.xlsx")
+    send_push_notification(
+        "Correlation scan complete",
+        "Crypto_Correlation.xlsx has been exported.",
+        logger,
+    )
+
+
 def main() -> None:
     """Entry point for running the scanner from the command line."""
     logger = setup_logging()
     try:
         run_scan(logger)
+        run_correlation_scan(logger)
     except (RuntimeError, ValueError, TypeError) as exc:
         logger.exception("Script failed: %s", exc)
 

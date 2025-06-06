@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import requests
 from tqdm import tqdm
 from volume_math import calculate_volume_change
+import correlation_math
 
 KLINE_CACHE = {}
 SORTED_KLINES_CACHE: dict[int, list] = {}
@@ -255,6 +256,25 @@ def process_symbol(symbol: str, logger: logging.Logger) -> dict:
         "30M": round(calculate_volume_change(klines, 30), 4),
         "1H": round(calculate_volume_change(klines, 60), 4),
         "4H": round(calculate_volume_change(klines, 240), 4),
+        "Funding Rate": rate,
+        "Open Interest Change": round(oi_change, 4),
+    }
+
+def process_symbol_correlation(symbol: str, btc_klines: list, logger: logging.Logger) -> dict:
+    """Return correlation metrics for ``symbol`` vs BTCUSDT."""
+    klines = fetch_recent_klines(symbol)
+    if not klines or not btc_klines:
+        logger.warning("%s skipped: No valid klines returned for correlation.", symbol)
+        return None
+    rate, _ = get_funding_rate(symbol)
+    oi_change = get_open_interest_change(symbol)
+    return {
+        "Symbol": symbol,
+        "5M": round(correlation_math.calculate_price_correlation(klines, btc_klines, 5), 4),
+        "15M": round(correlation_math.calculate_price_correlation(klines, btc_klines, 15), 4),
+        "30M": round(correlation_math.calculate_price_correlation(klines, btc_klines, 30), 4),
+        "1H": round(correlation_math.calculate_price_correlation(klines, btc_klines, 60), 4),
+        "4H": round(correlation_math.calculate_price_correlation(klines, btc_klines, 240), 4),
         "Funding Rate": rate,
         "Open Interest Change": round(oi_change, 4),
     }
