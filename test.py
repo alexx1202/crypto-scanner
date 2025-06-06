@@ -339,3 +339,25 @@ def test_export_to_excel_skips_conditional_formatting():
                              filename="x.xlsx", header="hdr",
                              apply_conditional_formatting=False)
         worksheet.conditional_format.assert_not_called()
+
+
+def test_export_to_excel_writes_header_without_merge():
+    """Header is written directly when only one metric column exists."""
+    df = pd.DataFrame([
+        {"Symbol": "BTCUSDT", "5M": 1.0}
+    ])
+    logger = MagicMock()
+    with patch("scan.pd.ExcelWriter") as mock_writer, \
+         patch("scan.wait_for_file_close"), \
+         patch("pandas.DataFrame.to_excel", autospec=True):
+        writer = MagicMock()
+        fmt = MagicMock()
+        writer.book.add_format.return_value = fmt
+        worksheet = MagicMock()
+        writer.sheets = {"Sheet1": worksheet}
+        mock_writer.return_value = writer
+
+        scan.export_to_excel(df, ["BTCUSDT"], logger,
+                             filename="x.xlsx", header="hdr")
+        worksheet.merge_range.assert_not_called()
+        worksheet.write.assert_any_call("B1", "hdr", fmt)
