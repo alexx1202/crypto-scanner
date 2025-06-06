@@ -204,6 +204,23 @@ def get_open_interest_change(symbol: str) -> float:
         "https://api.bybit.com/v5/market/open-interest"
         f"?category=linear&symbol={symbol}&interval=1h&limit=24"
     )
+    try:
+        response = requests.get(url, headers=get_auth_headers(), timeout=10)
+        response.raise_for_status()
+        rows = response.json().get("result", {}).get("list", [])
+        if len(rows) < 2:
+            raise ValueError("insufficient data")
+        rows_sorted = sorted(rows, key=lambda r: int(r.get("timestamp", 0)))
+        first = float(rows_sorted[0].get("openInterest", 0))
+        last = float(rows_sorted[-1].get("openInterest", 0))
+        if first == 0:
+            return 0.0
+        return (last - first) / first * 100
+    except (ValueError, KeyError, requests.RequestException):
+        logging.getLogger("volume_logger").warning(
+            "Failed to fetch open interest change for %s", symbol
+        )
+        return 0.0
 
 def process_symbol(symbol: str, logger: logging.Logger) -> dict:
     """Fetch indicator data for ``symbol`` and return a result row."""
