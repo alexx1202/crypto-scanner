@@ -118,8 +118,8 @@ def export_to_excel(
     df.to_excel(writer, index=False, sheet_name=sheet_name, startrow=1)
     worksheet = writer.sheets[sheet_name]
     header_format = writer.book.add_format({"bold": True})
-    span = "B1:I1" if "Open Interest Change" in df.columns else "B1:H1"
-    worksheet.merge_range(span, header, header_format)
+    end_col = chr(ord("A") + len(df.columns) - 1)
+    worksheet.merge_range(f"B1:{end_col}1", header, header_format)
     worksheet.freeze_panes(2, 0)
 
     red_format = writer.book.add_format({
@@ -139,7 +139,18 @@ def export_to_excel(
         worksheet.set_column(col_idx, col_idx, None, currency_format)
 
     percent_columns = [
-        name for name in ["5M", "15M", "30M", "1H", "4H", "Open Interest Change"]
+        name
+        for name in [
+            "5M",
+            "15M",
+            "30M",
+            "1H",
+            "4H",
+            "1D",
+            "1W",
+            "1M",
+            "Open Interest Change",
+        ]
         if name in df.columns
     ]
     for name in percent_columns:
@@ -152,15 +163,20 @@ def export_to_excel(
 
     if apply_conditional_formatting:
         columns_to_format = [
-            name for name in [
+            name
+            for name in [
                 "5M",
                 "15M",
                 "30M",
                 "1H",
                 "4H",
+                "1D",
+                "1W",
+                "1M",
                 "Open Interest Change",
                 "Funding Rate",
-            ] if name in df.columns
+            ]
+            if name in df.columns
         ]
         for name in columns_to_format:
             col = df.columns.get_loc(name)

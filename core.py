@@ -258,6 +258,9 @@ OPEN_INTEREST_INTERVALS = {
     "30M": "30min",
     "1H": "1h",
     "4H": "4h",
+    "1D": "1d",
+    "1W": "1w",
+    "1M": "1M",
 }
 
 
