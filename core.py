@@ -253,22 +253,24 @@ def process_symbol_correlation(symbol: str, btc_klines: list, logger: logging.Lo
 
 
 OPEN_INTEREST_INTERVALS = {
-    "5M": "5min",
-    "15M": "15min",
-    "30M": "30min",
-    "1H": "1h",
-    "4H": "4h",
-    "1D": "1d",
-    "1W": "1w",
-    "1M": "1M",
+    "5M": ("5min", 2),
+    "15M": ("15min", 2),
+    "30M": ("30min", 2),
+    "1H": ("1h", 2),
+    "4H": ("4h", 2),
+    "1D": ("1d", 2),
+    # 1 week and 1 month data are not provided directly by the API
+    # so use daily data and request enough rows to cover the period.
+    "1W": ("1d", 7),
+    "1M": ("1d", 30),
 }
 
 
 def get_open_interest_changes(symbol: str) -> dict:
     """Return open interest % change for multiple intervals."""
     result: dict[str, float] = {}
-    for name, interval in OPEN_INTEREST_INTERVALS.items():
-        result[name] = round(get_open_interest_change(symbol, interval, 2), 4)
+    for name, (interval, limit) in OPEN_INTEREST_INTERVALS.items():
+        result[name] = round(get_open_interest_change(symbol, interval, limit), 4)
     return result
 
 
