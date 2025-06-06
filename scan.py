@@ -230,8 +230,6 @@ def run_scan(logger: logging.Logger) -> None:
         logger,
         core.process_symbol_funding,
     )
-    for row in funding_rows:
-        row["24h USD Volume"] = volume_map.get(row["Symbol"], 0)
 
     logger.info("Scanning open interest changes...")
     oi_rows, _ = scan_and_collect_results(
@@ -239,8 +237,6 @@ def run_scan(logger: logging.Logger) -> None:
         logger,
         core.process_symbol_open_interest,
     )
-    for row in oi_rows:
-        row["24h USD Volume"] = volume_map.get(row["Symbol"], 0)
 
     if failed:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
