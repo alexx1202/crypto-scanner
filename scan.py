@@ -72,6 +72,7 @@ def export_to_excel(
     symbol_order: list,
     logger: logging.Logger,
     filename: str = "Crypto_Volume.xlsx",
+    header: str = "% Distance Below or Above 20 Bar Moving Average Volume Indicator",
 ) -> None:
     # pylint: disable=too-many-locals
     """Write ``df`` to ``filename`` with formatting."""
@@ -93,11 +94,7 @@ def export_to_excel(
         worksheet = writer.sheets["Sheet1"]
         header_format = writer.book.add_format({"bold": True})
         span = "B1:I1" if "Open Interest Change" in df.columns else "B1:H1"
-        worksheet.merge_range(
-            span,
-            "% Distance Below or Above 20 Bar Moving Average Volume Indicator",
-            header_format,
-        )
+        worksheet.merge_range(span, header, header_format)
         worksheet.freeze_panes(2, 0)
 
         red_format = writer.book.add_format({
@@ -244,11 +241,17 @@ def run_correlation_scan(logger: logging.Logger) -> None:
     if failed:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
 
+    df = pd.DataFrame(rows)
+    for col in ["5M", "15M", "30M", "1H", "4H"]:
+        if col in df.columns:
+            df[col] = df[col] * 100
+
     export_to_excel(
-        pd.DataFrame(rows),
+        df,
         [s for s, _ in all_symbols],
         logger,
         filename="Crypto_Correlation.xlsx",
+        header="% Correlation of Each Symbol to BTC",
     )
     logger.info("Export complete: Crypto_Correlation.xlsx")
     send_push_notification(
