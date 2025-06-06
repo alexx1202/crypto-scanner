@@ -129,6 +129,49 @@ def test_get_open_interest_change():
         change = core.get_open_interest_change("BTCUSDT")
         assert round(change, 4) == 10.0
 
+
+def test_get_open_interest_change_sorts_by_timestamp():
+    """Ensure change calculation sorts rows by timestamp."""
+    mock_data = {
+        "result": {
+            "list": [
+                {"openInterest": "110", "timestamp": "2"},
+                {"openInterest": "100", "timestamp": "1"},
+            ]
+        }
+    }
+    with patch("core.requests.get") as mock_get:
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_data
+        change = core.get_open_interest_change("BTCUSDT")
+        assert round(change, 4) == 10.0
+
+
+def test_get_open_interest_change_handles_api_error():
+    """Return 0 when API retCode is non-zero."""
+    mock_data = {"retCode": 10006, "retMsg": "bad"}
+    with patch("core.requests.get") as mock_get:
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_data
+        assert core.get_open_interest_change("BTCUSDT") == 0.0
+
+
+def test_get_open_interest_change_retries_on_rate_limit():
+    """Retry when the first call hits the rate limit."""
+    good_data = {
+        "result": {"list": [{"openInterest": "100"}, {"openInterest": "110"}]}
+    }
+    resp_429 = MagicMock(status_code=429)
+    resp_429.json.return_value = {}
+    resp_ok = MagicMock(status_code=200)
+    resp_ok.json.return_value = good_data
+    with patch("core.requests.get", side_effect=[resp_429, resp_ok]) as mock_get:
+        with patch("time.sleep") as mock_sleep:
+            change = core.get_open_interest_change("BTCUSDT")
+    assert round(change, 4) == 10.0
+    assert mock_get.call_count == 2
+    assert mock_sleep.called
+
 # -------------------------------
 # Tests for volume_math.calculate_volume_change
 # -------------------------------
