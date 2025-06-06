@@ -5,6 +5,7 @@ import smtplib
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from email.message import EmailMessage
+import requests
 
 import pandas as pd
 from tqdm import tqdm
@@ -87,6 +88,44 @@ def send_email_alert(subject: str, body: str, logger: logging.Logger) -> None:
         logger.info("Email alert sent to %s", to_addr)
     except smtplib.SMTPException as exc:
         logger.warning("Failed to send email alert: %s", exc)
+
+
+def send_push_notification(title: str, message: str, logger: logging.Logger) -> None:
+    """Send a push notification using the Pushover service if configured."""
+    user_key = os.getenv("PUSHOVER_USER_KEY")
+    api_token = os.getenv("PUSHOVER_API_TOKEN")
+
+    missing = [name for name, val in [
+        ("PUSHOVER_USER_KEY", user_key),
+        ("PUSHOVER_API_TOKEN", api_token),
+    ] if not val]
+
+    if missing:
+        logger.info(
+            "Push notification not configured. Missing %s. Skipping push notification.",
+            ", ".join(missing),
+        )
+        return
+
+    try:
+        resp = requests.post(
+            "https://api.pushover.net/1/messages.json",
+            data={
+                "token": api_token,
+                "user": user_key,
+                "title": title,
+                "message": message,
+            },
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            logger.info("Push notification sent")
+        else:
+            logger.warning(
+                "Failed to send push notification: %s", resp.text
+            )
+    except requests.RequestException as exc:  # pragma: no cover - network error
+        logger.warning("Failed to send push notification: %s", exc)
 
 
 def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger) -> None:  # pylint: disable=too-many-locals
@@ -225,6 +264,11 @@ def run_scan(logger: logging.Logger) -> None:
     export_to_excel(pd.DataFrame(rows), [s for s, _ in all_symbols], logger)
     logger.info("Export complete: Crypto_Volume.xlsx")
     send_email_alert(
+        "Volume scan complete",
+        "Crypto_Volume.xlsx has been exported.",
+        logger,
+    )
+    send_push_notification(
         "Volume scan complete",
         "Crypto_Volume.xlsx has been exported.",
         logger,

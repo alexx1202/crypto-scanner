@@ -69,3 +69,16 @@ EMAIL_FROM  # Sender address (defaults to SMTP_USER)
 If any variables are missing, the scan logs will list which ones were absent
 before skipping email alerts.
 
+## Push Notifications
+
+To receive a Pushover notification when the scan completes, set the following
+environment variables:
+
+```
+PUSHOVER_USER_KEY   # Your Pushover user key
+PUSHOVER_API_TOKEN  # API token for your Pushover application
+```
+
+As with email alerts, the script will log any missing variables and skip the
+notification if configuration is incomplete.
+
