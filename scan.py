@@ -1,10 +1,8 @@
 """Utilities for running a Bybit volume scan and exporting results."""
 
 import os
-import smtplib
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from email.message import EmailMessage
 
 import pandas as pd
 from tqdm import tqdm
@@ -46,47 +44,6 @@ def clean_existing_excels(logger: logging.Logger | None = None) -> None:
                 logger.warning("Failed to delete %s", file)
 
 
-def send_email_alert(subject: str, body: str, logger: logging.Logger) -> None:
-    """Send an email notification if SMTP credentials are configured."""
-    host = os.getenv("SMTP_HOST")
-    port = int(os.getenv("SMTP_PORT", "0"))
-    user = os.getenv("SMTP_USER")
-    password = os.getenv("SMTP_PASS")
-    to_addr = os.getenv("EMAIL_TO", "alexx1202@gmail.com")
-    from_addr = os.getenv("EMAIL_FROM", user or "")
-
-    missing = [
-        name
-        for name, val in [
-            ("SMTP_HOST", host),
-            ("SMTP_PORT", port),
-            ("SMTP_USER", user),
-            ("SMTP_PASS", password),
-            ("EMAIL_TO", to_addr),
-        ]
-        if not val
-    ]
-    if missing:
-        logger.info(
-            "Email not configured. Missing %s. Skipping email alert.",
-            ", ".join(missing),
-        )
-        return
-
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = from_addr
-    msg["To"] = to_addr
-    msg.set_content(body)
-
-    try:
-        with smtplib.SMTP(host, port) as smtp:
-            smtp.starttls()
-            smtp.login(user, password)
-            smtp.send_message(msg)
-        logger.info("Email alert sent to %s", to_addr)
-    except smtplib.SMTPException as exc:
-        logger.warning("Failed to send email alert: %s", exc)
 
 
 def export_to_excel(df: pd.DataFrame, symbol_order: list, logger: logging.Logger) -> None:  # pylint: disable=too-many-locals
@@ -224,11 +181,6 @@ def run_scan(logger: logging.Logger) -> None:
 
     export_to_excel(pd.DataFrame(rows), [s for s, _ in all_symbols], logger)
     logger.info("Export complete: Crypto_Volume.xlsx")
-    send_email_alert(
-        "Volume scan complete",
-        "Crypto_Volume.xlsx has been exported.",
-        logger,
-    )
 
 
 def main() -> None:

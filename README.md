@@ -53,19 +53,4 @@ All logs are written to the `logs` directory in the project root:
 `scan.py` writes `scanlog.txt` here, while `run_checks.py` creates
 `pylint.log` and `pytest.log` in the same directory.
 
-## Email Alerts
-
-Set the following environment variables to receive an email after each scan:
-
-```
-SMTP_HOST   # SMTP server hostname
-SMTP_PORT   # SMTP server port
-SMTP_USER   # Username for authentication
-SMTP_PASS   # Password for authentication
-EMAIL_TO    # Recipient email address (defaults to alexx1202@gmail.com)
-EMAIL_FROM  # Sender address (defaults to SMTP_USER)
-```
-
-If any variables are missing, the scan logs will list which ones were absent
-before skipping email alerts.
 
