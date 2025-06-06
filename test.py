@@ -121,6 +121,16 @@ def test_process_symbol_open_interest_with_mocked_logger():
         assert set(result.keys()) == expected_keys
 
 
+def test_get_open_interest_changes_calls_expected_params():
+    """Verify week and month calculations use daily data."""
+    with patch("core.get_open_interest_change", return_value=5.0) as mock_oi:
+        result = core.get_open_interest_changes("BTCUSDT")
+        assert set(result) == {"5M", "15M", "30M", "1H", "4H", "1D", "1W", "1M"}
+        assert mock_oi.call_count == 8
+        mock_oi.assert_any_call("BTCUSDT", "1d", 7)
+        mock_oi.assert_any_call("BTCUSDT", "1d", 30)
+
+
 def test_process_symbol_funding_with_mocked_logger():
     """Ensure funding rate metric returns correct mapping."""
     with patch("core.get_funding_rate", return_value=(0.001, 0)):
