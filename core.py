@@ -204,42 +204,6 @@ def get_open_interest_change(symbol: str) -> float:
         "https://api.bybit.com/v5/market/open-interest"
         f"?category=linear&symbol={symbol}&interval=1h&limit=24"
     )
-    try:
-        response = requests.get(url, headers=get_auth_headers(), timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        rows = data.get("result", {}).get("list", [])
-        if len(rows) < 2:
-            return 0.0
-
-        rows.sort(key=lambda r: int(r.get("timestamp", 0)))
-
-        def extract_oi(row: dict) -> float:
-            for key in (
-                "openInterest",
-                "open_interest",
-                "sumOpenInterest",
-                "openInterestValue",
-                "sumOpenInterestValue",
-            ):
-                if key in row:
-                    try:
-                        return float(row.get(key, 0))
-                    except (TypeError, ValueError):
-                        return 0.0
-            return 0.0
-
-        first = extract_oi(rows[0])
-        last = extract_oi(rows[-1])
-        if first == 0:
-            return 0.0
-        return ((last - first) / first) * 100
-    except (KeyError, ValueError, IndexError, requests.RequestException):
-        logging.getLogger("volume_logger").warning(
-            "Failed to fetch open interest for %s", symbol
-        )
-        return 0.0
-
 
 def process_symbol(symbol: str, logger: logging.Logger) -> dict:
     """Fetch indicator data for ``symbol`` and return a result row."""
