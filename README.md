@@ -53,32 +53,9 @@ All logs are written to the `logs` directory in the project root:
 `scan.py` writes `scanlog.txt` here, while `run_checks.py` creates
 `pylint.log` and `pytest.log` in the same directory.
 
-## Email Alerts
+## Windows Notifications
 
-Set the following environment variables to receive an email after each scan:
-
-```
-SMTP_HOST   # SMTP server hostname
-SMTP_PORT   # SMTP server port
-SMTP_USER   # Username for authentication
-SMTP_PASS   # Password for authentication
-EMAIL_TO    # Recipient email address (defaults to alexx1202@gmail.com)
-EMAIL_FROM  # Sender address (defaults to SMTP_USER)
-```
-
-If any variables are missing, the scan logs will list which ones were absent
-before skipping email alerts.
-
-## Push Notifications
-
-To receive a Pushover notification when the scan completes, set the following
-environment variables:
-
-```
-PUSHOVER_USER_KEY   # Your Pushover user key
-PUSHOVER_API_TOKEN  # API token for your Pushover application
-```
-
-As with email alerts, the script will log any missing variables and skip the
-notification if configuration is incomplete.
+If the optional `win10toast` package is installed and the script is run on
+Windows, a toast notification is shown when scans finish. No additional
+configuration is required. On other platforms the notification step is skipped.
 

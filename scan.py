@@ -1,11 +1,13 @@
 """Utilities for running a Bybit volume scan and exporting results."""
 
 import os
-import smtplib
 import logging
+import platform
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from email.message import EmailMessage
-import requests
+try:
+    from win10toast import ToastNotifier
+except ImportError:  # pragma: no cover - optional dependency
+    ToastNotifier = None
 
 import pandas as pd
 from tqdm import tqdm
@@ -47,85 +49,22 @@ def clean_existing_excels(logger: logging.Logger | None = None) -> None:
                 logger.warning("Failed to delete %s", file)
 
 
-def send_email_alert(subject: str, body: str, logger: logging.Logger) -> None:
-    """Send an email notification if SMTP credentials are configured."""
-    host = os.getenv("SMTP_HOST")
-    port = int(os.getenv("SMTP_PORT", "0"))
-    user = os.getenv("SMTP_USER")
-    password = os.getenv("SMTP_PASS")
-    to_addr = os.getenv("EMAIL_TO", "alexx1202@gmail.com")
-    from_addr = os.getenv("EMAIL_FROM", user or "")
-
-    missing = [
-        name
-        for name, val in [
-            ("SMTP_HOST", host),
-            ("SMTP_PORT", port),
-            ("SMTP_USER", user),
-            ("SMTP_PASS", password),
-            ("EMAIL_TO", to_addr),
-        ]
-        if not val
-    ]
-    if missing:
-        logger.info(
-            "Email not configured. Missing %s. Skipping email alert.",
-            ", ".join(missing),
-        )
-        return
-
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = from_addr
-    msg["To"] = to_addr
-    msg.set_content(body)
-
-    try:
-        with smtplib.SMTP(host, port) as smtp:
-            smtp.starttls()
-            smtp.login(user, password)
-            smtp.send_message(msg)
-        logger.info("Email alert sent to %s", to_addr)
-    except smtplib.SMTPException as exc:
-        logger.warning("Failed to send email alert: %s", exc)
-
-
 def send_push_notification(title: str, message: str, logger: logging.Logger) -> None:
-    """Send a push notification using the Pushover service if configured."""
-    user_key = os.getenv("PUSHOVER_USER_KEY")
-    api_token = os.getenv("PUSHOVER_API_TOKEN")
+    """Show a Windows toast notification if supported."""
+    if platform.system() != "Windows":
+        logger.info("Windows notifications not supported on this OS. Skipping.")
+        return
 
-    missing = [name for name, val in [
-        ("PUSHOVER_USER_KEY", user_key),
-        ("PUSHOVER_API_TOKEN", api_token),
-    ] if not val]
-
-    if missing:
-        logger.info(
-            "Push notification not configured. Missing %s. Skipping push notification.",
-            ", ".join(missing),
-        )
+    if ToastNotifier is None:
+        logger.info("win10toast not installed. Skipping notification.")
         return
 
     try:
-        resp = requests.post(
-            "https://api.pushover.net/1/messages.json",
-            data={
-                "token": api_token,
-                "user": user_key,
-                "title": title,
-                "message": message,
-            },
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            logger.info("Push notification sent")
-        else:
-            logger.warning(
-                "Failed to send push notification: %s", resp.text
-            )
-    except requests.RequestException as exc:  # pragma: no cover - network error
-        logger.warning("Failed to send push notification: %s", exc)
+        notifier = ToastNotifier()
+        notifier.show_toast(title, message, duration=5)
+        logger.info("Windows notification sent")
+    except OSError as exc:  # pragma: no cover - platform specific error
+        logger.warning("Failed to send notification: %s", exc)
 
 
 def export_to_excel(
@@ -269,11 +208,6 @@ def run_scan(logger: logging.Logger) -> None:
 
     export_to_excel(pd.DataFrame(rows), [s for s, _ in all_symbols], logger)
     logger.info("Export complete: Crypto_Volume.xlsx")
-    send_email_alert(
-        "Volume scan complete",
-        "Crypto_Volume.xlsx has been exported.",
-        logger,
-    )
     send_push_notification(
         "Volume scan complete",
         "Crypto_Volume.xlsx has been exported.",

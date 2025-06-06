@@ -7,7 +7,6 @@ and Excel export behavior. Supports pytest + pylint 10/10 compliance.
 import logging
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone, timedelta
-import os
 import pandas as pd
 import core
 import scan
@@ -244,57 +243,25 @@ def test_calculate_volume_change_cache_usage():
     assert len(core.SORTED_KLINES_CACHE) == 1
 
 
-def test_send_email_alert_sends_message():
-    """send_email_alert logs in and sends a message when configured."""
+
+
+def test_send_push_notification_sends_toast_on_windows():
+    """ToastNotifier called on Windows."""
     logger = MagicMock()
-    env = {
-        "SMTP_HOST": "smtp.example.com",
-        "SMTP_PORT": "587",
-        "SMTP_USER": "user",
-        "SMTP_PASS": "pass",
-        "EMAIL_TO": "to@example.com",
-        "EMAIL_FROM": "from@example.com",
-    }
-    with patch.dict(os.environ, env, clear=True), \
-         patch("scan.smtplib.SMTP") as mock_smtp:
-        smtp_instance = mock_smtp.return_value.__enter__.return_value
-        scan.send_email_alert("sub", "body", logger)
-        smtp_instance.starttls.assert_called_once()
-        smtp_instance.login.assert_called_once_with("user", "pass")
-        smtp_instance.send_message.assert_called_once()
-
-
-def test_send_email_alert_skips_if_missing_env():
-    """No SMTP connection attempted when config vars are absent."""
-    logger = MagicMock()
-    with patch.dict(os.environ, {}, clear=True), \
-         patch("scan.smtplib.SMTP") as mock_smtp:
-        scan.send_email_alert("sub", "body", logger)
-        mock_smtp.assert_not_called()
-
-
-def test_send_push_notification_sends_request():
-    """HTTP request made when Pushover variables are set."""
-    logger = MagicMock()
-    env = {
-        "PUSHOVER_USER_KEY": "u",
-        "PUSHOVER_API_TOKEN": "t",
-    }
-    with patch.dict(os.environ, env, clear=True), \
-         patch("scan.requests.post") as mock_post:
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.text = "ok"
+    with patch("scan.platform.system", return_value="Windows"), \
+         patch("scan.ToastNotifier") as mock_toast:
+        instance = mock_toast.return_value
         scan.send_push_notification("title", "msg", logger)
-        mock_post.assert_called_once()
+        instance.show_toast.assert_called_once_with("title", "msg", duration=5)
 
 
-def test_send_push_notification_skips_if_missing_env():
-    """No HTTP call made when Pushover config vars missing."""
+def test_send_push_notification_skips_on_non_windows():
+    """No toast created when not running on Windows."""
     logger = MagicMock()
-    with patch.dict(os.environ, {}, clear=True), \
-         patch("scan.requests.post") as mock_post:
+    with patch("scan.platform.system", return_value="Linux"), \
+         patch("scan.ToastNotifier") as mock_toast:
         scan.send_push_notification("title", "msg", logger)
-        mock_post.assert_not_called()
+        mock_toast.assert_not_called()
 
 
 def test_export_to_excel_swaps_column_order():
