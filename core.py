@@ -202,7 +202,7 @@ def get_open_interest_change(symbol: str) -> float:
     """Return the 24h open interest percentage change for ``symbol``."""
     url = (
         "https://api.bybit.com/v5/market/open-interest"
-        f"?category=linear&symbol={symbol}&interval=1h&limit=24"
+        f"?category=linear&symbol={symbol}&intervalTime=1h&limit=24"
     )
     try:
         response = requests.get(url, headers=get_auth_headers(), timeout=10)
