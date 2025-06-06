@@ -5,6 +5,8 @@ import logging
 import platform
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import importlib
+import subprocess
+import sys
 
 import pandas as pd
 from tqdm import tqdm
@@ -67,10 +69,21 @@ def send_push_notification(title: str, message: str, logger: logging.Logger) -> 
         return
 
     try:
-        notifier = notifier_class()
-        notifier.show_toast(title, message, duration=5)
+        subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from win10toast import ToastNotifier;"
+                    f"ToastNotifier().show_toast({title!r}, {message!r}, duration=5)"
+                ),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         logger.info("Windows notification sent")
-    except OSError as exc:  # pragma: no cover - platform specific error
+    except (OSError, subprocess.SubprocessError) as exc:  # pragma: no cover
         logger.warning("Failed to send notification: %s", exc)
 
 
