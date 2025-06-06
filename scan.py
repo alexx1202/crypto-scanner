@@ -4,16 +4,22 @@ import os
 import logging
 import platform
 from concurrent.futures import ThreadPoolExecutor, as_completed
-try:
-    from win10toast import ToastNotifier
-except ImportError:  # pragma: no cover - optional dependency
-    ToastNotifier = None
+import importlib
 
 import pandas as pd
 from tqdm import tqdm
 
 import core
 from scan_utils import wait_for_file_close
+
+
+def get_toast_notifier():
+    """Return the ``ToastNotifier`` class if ``win10toast`` is available."""
+    try:  # pragma: no cover - optional dependency
+        module = importlib.import_module("win10toast")
+        return module.ToastNotifier
+    except (ImportError, AttributeError):
+        return None
 
 
 def setup_logging() -> logging.Logger:
@@ -55,12 +61,13 @@ def send_push_notification(title: str, message: str, logger: logging.Logger) -> 
         logger.info("Windows notifications not supported on this OS. Skipping.")
         return
 
-    if ToastNotifier is None:
+    notifier_class = get_toast_notifier()
+    if notifier_class is None:
         logger.info("win10toast not installed. Skipping notification.")
         return
 
     try:
-        notifier = ToastNotifier()
+        notifier = notifier_class()
         notifier.show_toast(title, message, duration=5)
         logger.info("Windows notification sent")
     except OSError as exc:  # pragma: no cover - platform specific error
