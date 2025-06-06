@@ -253,6 +253,30 @@ def test_send_email_alert_skips_if_missing_env():
         mock_smtp.assert_not_called()
 
 
+def test_send_push_notification_sends_request():
+    """HTTP request made when Pushover variables are set."""
+    logger = MagicMock()
+    env = {
+        "PUSHOVER_USER_KEY": "u",
+        "PUSHOVER_API_TOKEN": "t",
+    }
+    with patch.dict(os.environ, env, clear=True), \
+         patch("scan.requests.post") as mock_post:
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.text = "ok"
+        scan.send_push_notification("title", "msg", logger)
+        mock_post.assert_called_once()
+
+
+def test_send_push_notification_skips_if_missing_env():
+    """No HTTP call made when Pushover config vars missing."""
+    logger = MagicMock()
+    with patch.dict(os.environ, {}, clear=True), \
+         patch("scan.requests.post") as mock_post:
+        scan.send_push_notification("title", "msg", logger)
+        mock_post.assert_not_called()
+
+
 def test_export_to_excel_swaps_column_order():
     """24h volume column should precede funding rate in exported sheet."""
     df = pd.DataFrame([
