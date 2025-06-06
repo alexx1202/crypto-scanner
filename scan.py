@@ -115,15 +115,12 @@ def export_to_excel(
     else:
         logger.info("Exporting sheet: %s", sheet_name)
 
-    df.to_excel(writer, index=False, sheet_name=sheet_name, startrow=1)
+    df.to_excel(writer, index=False, sheet_name=sheet_name, startrow=0)
     worksheet = writer.sheets[sheet_name]
     header_format = writer.book.add_format({"bold": True})
-    end_col = chr(ord("A") + len(df.columns) - 1)
-    if len(df.columns) > 2:
-        worksheet.merge_range(f"B1:{end_col}1", header, header_format)
-    else:
-        worksheet.write("B1", header, header_format)
-    worksheet.freeze_panes(2, 0)
+    header_col = len(df.columns) + 2
+    worksheet.write(0, header_col, header, header_format)
+    worksheet.freeze_panes(1, 0)
 
     red_format = writer.book.add_format({
         "bg_color": "#FFC7CE",
@@ -184,7 +181,7 @@ def export_to_excel(
         for name in columns_to_format:
             col = df.columns.get_loc(name)
             col_letter = chr(ord("A") + col)
-            cell_range = f"{col_letter}3:{col_letter}1048576"
+            cell_range = f"{col_letter}2:{col_letter}1048576"
             worksheet.conditional_format(cell_range, {
                 "type": "cell",
                 "criteria": ">",

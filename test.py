@@ -360,4 +360,4 @@ def test_export_to_excel_writes_header_without_merge():
         scan.export_to_excel(df, ["BTCUSDT"], logger,
                              filename="x.xlsx", header="hdr")
         worksheet.merge_range.assert_not_called()
-        worksheet.write.assert_any_call("B1", "hdr", fmt)
+        worksheet.write.assert_any_call(0, 4, "hdr", fmt)
