@@ -46,6 +46,8 @@ def test_fetch_recent_klines_exact_count():
         assert isinstance(result, list)
         assert len(result) == 5040
 
+
+
 def test_fetch_recent_klines_insufficient():
     """Test deduplication logic by simulating repeated stale API responses."""
     def build_chunk():
@@ -60,7 +62,6 @@ def test_fetch_recent_klines_insufficient():
         return MagicMock(status_code=200, json=lambda: {"result": {"list": []}})
 
     with patch("core.requests.get", side_effect=side_effect):
-        core.KLINE_CACHE.clear()
         result = core.fetch_recent_klines("BTCUSDT", total=5040)
         assert result == []
 
@@ -239,16 +240,6 @@ def test_calculate_volume_change_4h():
     assert result > 400
 
 
-def test_calculate_volume_change_cache_usage():
-    """Ensure sorted klines are cached and reused for identical objects."""
-    core.SORTED_KLINES_CACHE.clear()
-    klines = [[str(i), "", "", "", "", "1"] for i in range(105)]
-
-    calculate_volume_change(klines, 5)
-    assert len(core.SORTED_KLINES_CACHE) == 1
-
-    calculate_volume_change(klines, 5)
-    assert len(core.SORTED_KLINES_CACHE) == 1
 
 
 

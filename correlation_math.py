@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pandas as pd
 
-import core
 
 
 def calculate_price_correlation(
@@ -14,19 +13,8 @@ def calculate_price_correlation(
 ) -> float:
     """Return the Pearson correlation of minute returns over ``minutes``."""
     try:
-        sym_id = id(symbol_klines)
-        btc_id = id(btc_klines)
-        if sym_id in core.SORTED_KLINES_CACHE:
-            s_sorted = core.SORTED_KLINES_CACHE[sym_id]
-        else:
-            s_sorted = sorted(symbol_klines, key=lambda k: int(k[0]))
-            core.SORTED_KLINES_CACHE[sym_id] = s_sorted
-
-        if btc_id in core.SORTED_KLINES_CACHE:
-            b_sorted = core.SORTED_KLINES_CACHE[btc_id]
-        else:
-            b_sorted = sorted(btc_klines, key=lambda k: int(k[0]))
-            core.SORTED_KLINES_CACHE[btc_id] = b_sorted
+        s_sorted = sorted(symbol_klines, key=lambda k: int(k[0]))
+        b_sorted = sorted(btc_klines, key=lambda k: int(k[0]))
 
         if len(s_sorted) < minutes + 1 or len(b_sorted) < minutes + 1:
             return 0.0
