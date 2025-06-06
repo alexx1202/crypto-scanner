@@ -89,8 +89,10 @@ def export_to_excel(
     logger: logging.Logger,
     filename: str = "Crypto_Volume.xlsx",
     header: str = "% Distance Below or Above 20 Bar Moving Average Volume Indicator",
+    *,
+    apply_conditional_formatting: bool = True,
 ) -> None:
-    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals,too-many-arguments
     """Write ``df`` to ``filename`` with formatting."""
     df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
     df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
@@ -141,33 +143,34 @@ def export_to_excel(
             idx = df.columns.get_loc("Funding Rate")
             worksheet.set_column(idx, idx, None, funding_format)
 
-        columns_to_format = [
-            name for name in [
-                "5M",
-                "15M",
-                "30M",
-                "1H",
-                "4H",
-                "Open Interest Change",
-                "Funding Rate",
-            ] if name in df.columns
-        ]
-        for name in columns_to_format:
-            col = df.columns.get_loc(name)
-            col_letter = chr(ord("A") + col)
-            cell_range = f"{col_letter}3:{col_letter}1048576"
-            worksheet.conditional_format(cell_range, {
-                "type": "cell",
-                "criteria": ">",
-                "value": 0,
-                "format": green_format
-            })
-            worksheet.conditional_format(cell_range, {
-                "type": "cell",
-                "criteria": "<",
-                "value": 0,
-                "format": red_format
-            })
+        if apply_conditional_formatting:
+            columns_to_format = [
+                name for name in [
+                    "5M",
+                    "15M",
+                    "30M",
+                    "1H",
+                    "4H",
+                    "Open Interest Change",
+                    "Funding Rate",
+                ] if name in df.columns
+            ]
+            for name in columns_to_format:
+                col = df.columns.get_loc(name)
+                col_letter = chr(ord("A") + col)
+                cell_range = f"{col_letter}3:{col_letter}1048576"
+                worksheet.conditional_format(cell_range, {
+                    "type": "cell",
+                    "criteria": ">",
+                    "value": 0,
+                    "format": green_format
+                })
+                worksheet.conditional_format(cell_range, {
+                    "type": "cell",
+                    "criteria": "<",
+                    "value": 0,
+                    "format": red_format
+                })
 
 
 def submit_symbol_futures(symbols: list[str], executor: ThreadPoolExecutor,
@@ -319,12 +322,46 @@ def run_correlation_scan(logger: logging.Logger) -> None:
     )
 
 
+def run_volatility_scan(logger: logging.Logger) -> None:
+    """Compute high-low price movement for each symbol and export."""
+    logger.info("Starting volatility scan...")
+    all_symbols = core.get_tradeable_symbols_sorted_by_volume()
+    if not all_symbols:
+        logger.warning("No symbols retrieved. Skipping volatility export.")
+        return
+
+    rows, failed = scan_and_collect_results(
+        [s for s, _ in all_symbols],
+        logger,
+        core.process_symbol_volatility,
+    )
+
+    if failed:
+        logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
+
+    export_to_excel(
+        pd.DataFrame(rows),
+        [s for s, _ in all_symbols],
+        logger,
+        filename="Price_Movement.xlsx",
+        header="% Price Movement",
+        apply_conditional_formatting=False,
+    )
+    logger.info("Export complete: Price_Movement.xlsx")
+    send_push_notification(
+        "Volatility scan complete",
+        "Price_Movement.xlsx has been exported.",
+        logger,
+    )
+
+
 def main() -> None:
     """Entry point for running the scanner from the command line."""
     logger = setup_logging()
     try:
         run_scan(logger)
         run_correlation_scan(logger)
+        run_volatility_scan(logger)
     except (RuntimeError, ValueError, TypeError) as exc:
         logger.exception("Script failed: %s", exc)
 
