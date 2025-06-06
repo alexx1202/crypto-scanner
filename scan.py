@@ -70,7 +70,7 @@ def send_push_notification(title: str, message: str, logger: logging.Logger) -> 
         notifier = notifier_class()
         notifier.show_toast(title, message, duration=5)
         logger.info("Windows notification sent")
-    except OSError as exc:  # pragma: no cover - platform specific error
+    except (OSError, TypeError) as exc:  # pragma: no cover - platform specific error
         logger.warning("Failed to send notification: %s", exc)
 
 
