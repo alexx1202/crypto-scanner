@@ -12,6 +12,7 @@ import core
 import scan
 from volume_math import calculate_volume_change
 import correlation_math
+import volatility_math
 
 def test_get_tradeable_symbols_sorted_by_volume():
     """Test symbol sorting by 24h volume descending order."""
@@ -45,6 +46,8 @@ def test_fetch_recent_klines_exact_count():
         assert isinstance(result, list)
         assert len(result) == 5040
 
+
+
 def test_fetch_recent_klines_insufficient():
     """Test deduplication logic by simulating repeated stale API responses."""
     def build_chunk():
@@ -59,7 +62,6 @@ def test_fetch_recent_klines_insufficient():
         return MagicMock(status_code=200, json=lambda: {"result": {"list": []}})
 
     with patch("core.requests.get", side_effect=side_effect):
-        core.KLINE_CACHE.clear()
         result = core.fetch_recent_klines("BTCUSDT", total=5040)
         assert result == []
 
@@ -238,16 +240,6 @@ def test_calculate_volume_change_4h():
     assert result > 400
 
 
-def test_calculate_volume_change_cache_usage():
-    """Ensure sorted klines are cached and reused for identical objects."""
-    core.SORTED_KLINES_CACHE.clear()
-    klines = [[str(i), "", "", "", "", "1"] for i in range(105)]
-
-    calculate_volume_change(klines, 5)
-    assert len(core.SORTED_KLINES_CACHE) == 1
-
-    calculate_volume_change(klines, 5)
-    assert len(core.SORTED_KLINES_CACHE) == 1
 
 
 
@@ -301,3 +293,39 @@ def test_export_to_excel_swaps_column_order():
         scan.export_to_excel(df, ["BTCUSDT"], logger)
         cols = captured.get("cols")
         assert cols.index("24h USD Volume") < cols.index("Funding Rate")
+
+def test_calculate_price_range_percent():
+    """Calculate correct high-low percentage for latest block."""
+    klines = [[str(i), "1", "10", "8", "", "1"] for i in range(5)]
+    result = volatility_math.calculate_price_range_percent(klines, 5)
+    assert round(result, 2) == 25.0
+
+
+def test_process_symbol_volatility_with_mocked_logger():
+    """Ensure volatility metrics include expected keys."""
+    mock_klines = [[str(i), "1", "10", "8", "", "1"] for i in range(5040)]
+    with patch("core.fetch_recent_klines", return_value=mock_klines):
+        result = core.process_symbol_volatility("BTCUSDT", MagicMock())
+        expected_keys = {"Symbol", "5M", "15M", "30M", "1H", "4H"}
+        assert set(result.keys()) == expected_keys
+
+
+def test_export_to_excel_skips_conditional_formatting():
+    """No conditional formatting applied when flag is False."""
+    df = pd.DataFrame([
+        {"Symbol": "BTCUSDT", "5M": 1.0}
+    ])
+    logger = MagicMock()
+    with patch("scan.pd.ExcelWriter") as mock_writer, \
+         patch("scan.wait_for_file_close"), \
+         patch("pandas.DataFrame.to_excel", autospec=True):
+        writer = MagicMock()
+        writer.book.add_format.return_value = MagicMock()
+        worksheet = MagicMock()
+        writer.sheets = {"Sheet1": worksheet}
+        mock_writer.return_value.__enter__.return_value = writer
+
+        scan.export_to_excel(df, ["BTCUSDT"], logger,
+                             filename="x.xlsx", header="hdr",
+                             apply_conditional_formatting=False)
+        worksheet.conditional_format.assert_not_called()

@@ -12,9 +12,9 @@ import requests
 from tqdm import tqdm
 from volume_math import calculate_volume_change
 import correlation_math
+import volatility_math
 
-KLINE_CACHE = {}
-SORTED_KLINES_CACHE: dict[int, list] = {}
+MAX_DUPLICATE_RETRIES = 3
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, "logs")
@@ -121,17 +121,17 @@ def fetch_with_backoff(url: str, symbol: str, logger: logging.Logger) -> list:
     return []
 
 
-def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> list:
+def fetch_recent_klines(
+    symbol: str,
+    interval: str = "1",
+    total: int = 5040,
+) -> list:
     """Return ``total`` klines for ``symbol`` using backoff retry logic."""
     logger = get_debug_logger()
     main_logger = logging.getLogger("volume_logger")
 
-    if symbol in KLINE_CACHE:
-        return KLINE_CACHE[symbol][-total:]
-
     seen_chunks = set()
     consecutive_duplicates = 0
-    max_consecutive_duplicates = 3
     all_klines = []
     end_time = get_kline_end_time()
 
@@ -149,7 +149,7 @@ def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> 
             if chunk_key in seen_chunks:
                 consecutive_duplicates += 1
                 logger.debug("[%s] Duplicate chunk #%d detected.", symbol, consecutive_duplicates)
-                if consecutive_duplicates >= max_consecutive_duplicates:
+                if consecutive_duplicates >= MAX_DUPLICATE_RETRIES:
                     logger.warning(
                         "%s: Max duplicate retries hit. Only %d klines gathered, expected %d.",
                         symbol,
@@ -172,7 +172,6 @@ def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> 
         main_logger.warning("%s: Only %d klines returned, skipping.", symbol, len(all_klines))
         return []
 
-    KLINE_CACHE[symbol] = all_klines
     return all_klines[-total:]
 
 
@@ -281,3 +280,19 @@ def process_symbol_funding(symbol: str, _logger: logging.Logger) -> dict:
     """Return the latest funding rate for ``symbol``."""
     rate, _ = get_funding_rate(symbol)
     return {"Symbol": symbol, "Funding Rate": rate}
+
+
+def process_symbol_volatility(symbol: str, logger: logging.Logger) -> dict:
+    """Return price range percentage movement metrics for ``symbol``."""
+    klines = fetch_recent_klines(symbol)
+    if not klines:
+        logger.warning("%s skipped: No valid klines returned for volatility.", symbol)
+        return None
+    return {
+        "Symbol": symbol,
+        "5M": round(volatility_math.calculate_price_range_percent(klines, 5), 4),
+        "15M": round(volatility_math.calculate_price_range_percent(klines, 15), 4),
+        "30M": round(volatility_math.calculate_price_range_percent(klines, 30), 4),
+        "1H": round(volatility_math.calculate_price_range_percent(klines, 60), 4),
+        "4H": round(volatility_math.calculate_price_range_percent(klines, 240), 4),
+    }
