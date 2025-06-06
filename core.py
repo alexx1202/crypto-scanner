@@ -210,8 +210,26 @@ def get_open_interest_change(symbol: str) -> float:
         rows = data.get("result", {}).get("list", [])
         if len(rows) < 2:
             return 0.0
-        first = float(rows[0].get("openInterest", 0))
-        last = float(rows[-1].get("openInterest", 0))
+
+        rows.sort(key=lambda r: int(r.get("timestamp", 0)))
+
+        def extract_oi(row: dict) -> float:
+            for key in (
+                "openInterest",
+                "open_interest",
+                "sumOpenInterest",
+                "openInterestValue",
+                "sumOpenInterestValue",
+            ):
+                if key in row:
+                    try:
+                        return float(row.get(key, 0))
+                    except (TypeError, ValueError):
+                        return 0.0
+            return 0.0
+
+        first = extract_oi(rows[0])
+        last = extract_oi(rows[-1])
         if first == 0:
             return 0.0
         return ((last - first) / first) * 100
