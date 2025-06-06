@@ -91,6 +91,8 @@ def export_to_excel(
     header: str = "% Distance Below or Above 20 Bar Moving Average Volume Indicator",
     *,
     apply_conditional_formatting: bool = True,
+    writer: pd.ExcelWriter | None = None,
+    sheet_name: str = "Sheet1",
 ) -> None:
     # pylint: disable=too-many-locals,too-many-arguments
     """Write ``df`` to ``filename`` with formatting."""
@@ -105,73 +107,79 @@ def export_to_excel(
             cols[fr_idx], cols[vol_idx] = cols[vol_idx], cols[fr_idx]
             df = df[cols]
 
-    logger.info("Exporting data to Excel: %s", filename)
-    wait_for_file_close(filename, logger)
-    with pd.ExcelWriter(filename, engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False, sheet_name="Sheet1", startrow=1)
-        worksheet = writer.sheets["Sheet1"]
-        header_format = writer.book.add_format({"bold": True})
-        span = "B1:I1" if "Open Interest Change" in df.columns else "B1:H1"
-        worksheet.merge_range(span, header, header_format)
-        worksheet.freeze_panes(2, 0)
+    manage_writer = writer is None
+    if manage_writer:
+        logger.info("Exporting data to Excel: %s", filename)
+        wait_for_file_close(filename, logger)
+        writer = pd.ExcelWriter(filename, engine="xlsxwriter")
+    else:
+        logger.info("Exporting sheet: %s", sheet_name)
 
-        red_format = writer.book.add_format({
-            "bg_color": "#FFC7CE",
-            "font_color": "#9C0006",
-        })
-        green_format = writer.book.add_format({
-            "bg_color": "#C6EFCE",
-            "font_color": "#006100",
-        })
-        currency_format = writer.book.add_format({"num_format": "$#,##0.00"})
-        percent_format = writer.book.add_format({"num_format": '0.00"%"'})
-        funding_format = writer.book.add_format({"num_format": '0.0000000%'})
+    df.to_excel(writer, index=False, sheet_name=sheet_name, startrow=1)
+    worksheet = writer.sheets[sheet_name]
+    header_format = writer.book.add_format({"bold": True})
+    span = "B1:I1" if "Open Interest Change" in df.columns else "B1:H1"
+    worksheet.merge_range(span, header, header_format)
+    worksheet.freeze_panes(2, 0)
 
-        if "24h USD Volume" in df.columns:
-            col_idx = df.columns.get_loc("24h USD Volume")
-            worksheet.set_column(col_idx, col_idx, None, currency_format)
+    red_format = writer.book.add_format({
+        "bg_color": "#FFC7CE",
+        "font_color": "#9C0006",
+    })
+    green_format = writer.book.add_format({
+        "bg_color": "#C6EFCE",
+        "font_color": "#006100",
+    })
+    currency_format = writer.book.add_format({"num_format": "$#,##0.00"})
+    percent_format = writer.book.add_format({"num_format": '0.00"%"'})
+    funding_format = writer.book.add_format({"num_format": '0.0000000%'})
 
-        percent_columns = [
-            name for name in ["5M", "15M", "30M", "1H", "4H", "Open Interest Change"]
-            if name in df.columns
+    if "24h USD Volume" in df.columns:
+        col_idx = df.columns.get_loc("24h USD Volume")
+        worksheet.set_column(col_idx, col_idx, None, currency_format)
+
+    percent_columns = [
+        name for name in ["5M", "15M", "30M", "1H", "4H", "Open Interest Change"]
+        if name in df.columns
+    ]
+    for name in percent_columns:
+        col = df.columns.get_loc(name)
+        worksheet.set_column(col, col, None, percent_format)
+
+    if "Funding Rate" in df.columns:
+        idx = df.columns.get_loc("Funding Rate")
+        worksheet.set_column(idx, idx, None, funding_format)
+
+    if apply_conditional_formatting:
+        columns_to_format = [
+            name for name in [
+                "5M",
+                "15M",
+                "30M",
+                "1H",
+                "4H",
+                "Open Interest Change",
+                "Funding Rate",
+            ] if name in df.columns
         ]
-        for name in percent_columns:
+        for name in columns_to_format:
             col = df.columns.get_loc(name)
-            worksheet.set_column(col, col, None, percent_format)
-
-        if "Funding Rate" in df.columns:
-            idx = df.columns.get_loc("Funding Rate")
-            worksheet.set_column(idx, idx, None, funding_format)
-
-        if apply_conditional_formatting:
-            columns_to_format = [
-                name for name in [
-                    "5M",
-                    "15M",
-                    "30M",
-                    "1H",
-                    "4H",
-                    "Open Interest Change",
-                    "Funding Rate",
-                ] if name in df.columns
-            ]
-            for name in columns_to_format:
-                col = df.columns.get_loc(name)
-                col_letter = chr(ord("A") + col)
-                cell_range = f"{col_letter}3:{col_letter}1048576"
-                worksheet.conditional_format(cell_range, {
-                    "type": "cell",
-                    "criteria": ">",
-                    "value": 0,
-                    "format": green_format
-                })
-                worksheet.conditional_format(cell_range, {
-                    "type": "cell",
-                    "criteria": "<",
-                    "value": 0,
-                    "format": red_format
-                })
-
+            col_letter = chr(ord("A") + col)
+            cell_range = f"{col_letter}3:{col_letter}1048576"
+            worksheet.conditional_format(cell_range, {
+                "type": "cell",
+                "criteria": ">",
+                "value": 0,
+                "format": green_format
+            })
+            worksheet.conditional_format(cell_range, {
+                "type": "cell",
+                "criteria": "<",
+                "value": 0,
+                "format": red_format
+            })
+    if manage_writer:
+        writer.close()
 
 def submit_symbol_futures(symbols: list[str], executor: ThreadPoolExecutor,
                            logger: logging.Logger, func) -> dict:
@@ -201,17 +209,12 @@ def scan_and_collect_results(symbols: list[str],
     return rows, failed
 
 
-def run_scan(logger: logging.Logger) -> None:
-    """Fetch symbols, run analysis, and export results to Excel."""
-    logger.info("Fetching USDT perpetual futures from Bybit...")
-    all_symbols = core.get_tradeable_symbols_sorted_by_volume()
-    logger.info("Total pairs found: %d", len(all_symbols))
+def run_scan(
+    all_symbols: list[tuple],
+    logger: logging.Logger,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
+    """Fetch volume, funding and open interest metrics."""
 
-    if not all_symbols:
-        logger.warning("No symbols retrieved. Skipping export.")
-        return
-
-    clean_existing_excels(logger)
     logger.info("Scanning volume metrics...")
 
     volume_rows, failed = scan_and_collect_results(
@@ -241,41 +244,21 @@ def run_scan(logger: logging.Logger) -> None:
     if failed:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
 
-    export_to_excel(pd.DataFrame(volume_rows), [s for s, _ in all_symbols], logger)
-    logger.info("Export complete: Crypto_Volume.xlsx")
-
-    export_to_excel(
+    return (
+        pd.DataFrame(volume_rows),
         pd.DataFrame(funding_rows),
-        [s for s, _ in all_symbols],
-        logger,
-        filename="Funding_Rates.xlsx",
-        header="Latest Funding Rates",
-    )
-    logger.info("Export complete: Funding_Rates.xlsx")
-
-    export_to_excel(
         pd.DataFrame(oi_rows),
         [s for s, _ in all_symbols],
-        logger,
-        filename="Open_Interest.xlsx",
-        header="% Change in Open Interest",
-    )
-    logger.info("Export complete: Open_Interest.xlsx")
-
-    send_push_notification(
-        "Volume scan complete",
-        "Crypto_Volume.xlsx has been exported.",
-        logger,
     )
 
 
-def run_correlation_scan(logger: logging.Logger) -> None:
-    """Compute correlation of each symbol to BTCUSDT and export."""
+def run_correlation_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd.DataFrame:
+    """Compute correlation of each symbol to BTCUSDT."""
     logger.info("Starting correlation scan...")
-    all_symbols = core.get_tradeable_symbols_sorted_by_volume()
+
     if not all_symbols:
         logger.warning("No symbols retrieved. Skipping correlation export.")
-        return
+        return pd.DataFrame()
 
     btc_klines = core.fetch_recent_klines("BTCUSDT")
     rows: list[dict] = []
@@ -303,28 +286,15 @@ def run_correlation_scan(logger: logging.Logger) -> None:
         if col in df.columns:
             df[col] = df[col] * 100
 
-    export_to_excel(
-        df,
-        [s for s, _ in all_symbols],
-        logger,
-        filename="Crypto_Correlation.xlsx",
-        header="% Correlation of Each Symbol to BTC",
-    )
-    logger.info("Export complete: Crypto_Correlation.xlsx")
-    send_push_notification(
-        "Correlation scan complete",
-        "Crypto_Correlation.xlsx has been exported.",
-        logger,
-    )
+    return df
 
 
-def run_volatility_scan(logger: logging.Logger) -> None:
-    """Compute high-low price movement for each symbol and export."""
+def run_volatility_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd.DataFrame:
+    """Compute high-low price movement for each symbol."""
     logger.info("Starting volatility scan...")
-    all_symbols = core.get_tradeable_symbols_sorted_by_volume()
     if not all_symbols:
         logger.warning("No symbols retrieved. Skipping volatility export.")
-        return
+        return pd.DataFrame()
 
     rows, failed = scan_and_collect_results(
         [s for s, _ in all_symbols],
@@ -335,29 +305,98 @@ def run_volatility_scan(logger: logging.Logger) -> None:
     if failed:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
 
-    export_to_excel(
-        pd.DataFrame(rows),
-        [s for s, _ in all_symbols],
-        logger,
-        filename="Price_Movement.xlsx",
-        header="% Price Movement",
-        apply_conditional_formatting=False,
-    )
-    logger.info("Export complete: Price_Movement.xlsx")
-    send_push_notification(
-        "Volatility scan complete",
-        "Price_Movement.xlsx has been exported.",
-        logger,
-    )
+    return pd.DataFrame(rows)
+
+
+def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    volume_df: pd.DataFrame,
+    funding_df: pd.DataFrame,
+    oi_df: pd.DataFrame,
+    corr_df: pd.DataFrame,
+    vol_df: pd.DataFrame,
+    symbol_order: list[str],
+    logger: logging.Logger,
+) -> None:
+    """Write all metric DataFrames to ``Scan.xlsx``."""
+
+    wait_for_file_close("Scan.xlsx", logger)
+    with pd.ExcelWriter("Scan.xlsx", engine="xlsxwriter") as writer:
+        export_to_excel(
+            volume_df,
+            symbol_order,
+            logger,
+            header="% Distance Below or Above 20 Bar Moving Average Volume Indicator",
+            writer=writer,
+            sheet_name="Volume",
+        )
+        export_to_excel(
+            funding_df,
+            symbol_order,
+            logger,
+            header="Latest Funding Rates",
+            writer=writer,
+            sheet_name="Funding Rates",
+        )
+        export_to_excel(
+            oi_df,
+            symbol_order,
+            logger,
+            header="% Change in Open Interest",
+            writer=writer,
+            sheet_name="Open Interest",
+        )
+        export_to_excel(
+            corr_df,
+            symbol_order,
+            logger,
+            header="% Correlation of Each Symbol to BTC",
+            writer=writer,
+            sheet_name="Correlation",
+        )
+        export_to_excel(
+            vol_df,
+            symbol_order,
+            logger,
+            header="% Price Movement",
+            writer=writer,
+            sheet_name="Price Movement",
+            apply_conditional_formatting=False,
+        )
+    logger.info("Export complete: Scan.xlsx")
 
 
 def main() -> None:
     """Entry point for running the scanner from the command line."""
     logger = setup_logging()
     try:
-        run_scan(logger)
-        run_correlation_scan(logger)
-        run_volatility_scan(logger)
+        logger.info("Fetching USDT perpetual futures from Bybit...")
+        all_symbols = core.get_tradeable_symbols_sorted_by_volume()
+        logger.info("Total pairs found: %d", len(all_symbols))
+
+        if not all_symbols:
+            logger.warning("No symbols retrieved. Skipping export.")
+            return
+
+        clean_existing_excels(logger)
+
+        volume_df, funding_df, oi_df, symbol_order = run_scan(all_symbols, logger)
+        corr_df = run_correlation_scan(all_symbols, logger)
+        vol_df = run_volatility_scan(all_symbols, logger)
+
+        export_all_data(
+            volume_df,
+            funding_df,
+            oi_df,
+            corr_df,
+            vol_df,
+            symbol_order,
+            logger,
+        )
+        send_push_notification(
+            "Scan complete",
+            "Scan.xlsx has been exported.",
+            logger,
+        )
     except (RuntimeError, ValueError, TypeError) as exc:
         logger.exception("Script failed: %s", exc)
 
