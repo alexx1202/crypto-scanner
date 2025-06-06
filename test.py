@@ -12,6 +12,7 @@ import pandas as pd
 import core
 import scan
 from volume_math import calculate_volume_change
+import correlation_math
 
 def test_get_tradeable_symbols_sorted_by_volume():
     """Test symbol sorting by 24h volume descending order."""
@@ -98,6 +99,25 @@ def test_process_symbol_with_mocked_logger():
         assert "Funding Rate" in result
         assert "Open Interest Change" in result
         assert "Funding Rate Timestamp" not in result
+
+
+def test_calculate_price_correlation_perfect():
+    """Correlation should be 1.0 for identical series."""
+    klines = [[str(i), "", "", "", str(i), "1"] for i in range(10)]
+    result = correlation_math.calculate_price_correlation(klines, klines, 5)
+    assert round(result, 6) == 1.0
+
+
+def test_process_symbol_correlation_with_mocked_logger():
+    """Ensure correlation processing returns expected keys."""
+    mock_klines = [[str(i), "", "", "", str(i), "2"] for i in range(5040)]
+    with patch("core.fetch_recent_klines", return_value=mock_klines), \
+         patch("core.get_open_interest_change", return_value=5.0):
+        result = core.process_symbol_correlation("ETHUSDT", mock_klines, MagicMock())
+        assert isinstance(result, dict)
+        assert result["Symbol"] == "ETHUSDT"
+        assert "5M" in result
+        assert "Funding Rate" in result
 
 def test_get_funding_rate_success_timestamp():
     """Ensure timestamp reflects when the rate was fetched."""

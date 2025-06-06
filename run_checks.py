@@ -11,7 +11,13 @@ import core
 
 LOG_DIR = core.LOG_DIR
 
-PY_FILES = ["core.py", "scan.py", "test.py", "volume_math.py"]
+PY_FILES = [
+    "core.py",
+    "scan.py",
+    "test.py",
+    "volume_math.py",
+    "correlation_math.py",
+]
 
 
 def run_pylint() -> None:
