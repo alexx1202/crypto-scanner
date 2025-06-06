@@ -198,11 +198,11 @@ def get_funding_rate(symbol: str) -> tuple[float, int]:
         return 0.0, 0
 
 
-def get_open_interest_change(symbol: str) -> float:
-    """Return the 24h open interest percentage change for ``symbol``."""
+def get_open_interest_change(symbol: str, interval: str = "1h", limit: int = 24) -> float:
+    """Return the open interest percentage change for ``symbol``."""
     url = (
         "https://api.bybit.com/v5/market/open-interest"
-        f"?category=linear&symbol={symbol}&intervalTime=1h&limit=24"
+        f"?category=linear&symbol={symbol}&intervalTime={interval}&limit={limit}"
     )
     try:
         response = requests.get(url, headers=get_auth_headers(), timeout=10)
@@ -223,13 +223,11 @@ def get_open_interest_change(symbol: str) -> float:
         return 0.0
 
 def process_symbol(symbol: str, logger: logging.Logger) -> dict:
-    """Fetch indicator data for ``symbol`` and return a result row."""
+    """Return volume percentage change metrics for ``symbol``."""
     klines = fetch_recent_klines(symbol)
     if not klines:
         logger.warning("%s skipped: No valid klines returned.", symbol)
         return None
-    rate, _ = get_funding_rate(symbol)
-    oi_change = get_open_interest_change(symbol)
     return {
         "Symbol": symbol,
         "5M": round(calculate_volume_change(klines, 5), 4),
@@ -237,8 +235,6 @@ def process_symbol(symbol: str, logger: logging.Logger) -> dict:
         "30M": round(calculate_volume_change(klines, 30), 4),
         "1H": round(calculate_volume_change(klines, 60), 4),
         "4H": round(calculate_volume_change(klines, 240), 4),
-        "Funding Rate": rate,
-        "Open Interest Change": round(oi_change, 4),
     }
 
 def process_symbol_correlation(symbol: str, btc_klines: list, logger: logging.Logger) -> dict:
@@ -247,8 +243,6 @@ def process_symbol_correlation(symbol: str, btc_klines: list, logger: logging.Lo
     if not klines or not btc_klines:
         logger.warning("%s skipped: No valid klines returned for correlation.", symbol)
         return None
-    rate, _ = get_funding_rate(symbol)
-    oi_change = get_open_interest_change(symbol)
     return {
         "Symbol": symbol,
         "5M": round(correlation_math.calculate_price_correlation(klines, btc_klines, 5), 4),
@@ -256,6 +250,34 @@ def process_symbol_correlation(symbol: str, btc_klines: list, logger: logging.Lo
         "30M": round(correlation_math.calculate_price_correlation(klines, btc_klines, 30), 4),
         "1H": round(correlation_math.calculate_price_correlation(klines, btc_klines, 60), 4),
         "4H": round(correlation_math.calculate_price_correlation(klines, btc_klines, 240), 4),
-        "Funding Rate": rate,
-        "Open Interest Change": round(oi_change, 4),
     }
+
+
+OPEN_INTEREST_INTERVALS = {
+    "5M": "5min",
+    "15M": "15min",
+    "30M": "30min",
+    "1H": "1h",
+    "4H": "4h",
+}
+
+
+def get_open_interest_changes(symbol: str) -> dict:
+    """Return open interest % change for multiple intervals."""
+    result: dict[str, float] = {}
+    for name, interval in OPEN_INTEREST_INTERVALS.items():
+        result[name] = round(get_open_interest_change(symbol, interval, 2), 4)
+    return result
+
+
+def process_symbol_open_interest(symbol: str, _logger: logging.Logger) -> dict:
+    """Return open interest change metrics for ``symbol``."""
+    changes = get_open_interest_changes(symbol)
+    changes["Symbol"] = symbol
+    return changes
+
+
+def process_symbol_funding(symbol: str, _logger: logging.Logger) -> dict:
+    """Return the latest funding rate for ``symbol``."""
+    rate, _ = get_funding_rate(symbol)
+    return {"Symbol": symbol, "Funding Rate": rate}

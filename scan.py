@@ -171,21 +171,22 @@ def export_to_excel(
 
 
 def submit_symbol_futures(symbols: list[str], executor: ThreadPoolExecutor,
-                           logger: logging.Logger) -> dict:
+                           logger: logging.Logger, func) -> dict:
     """Return a mapping of futures to their corresponding symbol."""
     return {
-        executor.submit(core.process_symbol, symbol, logger): symbol
+        executor.submit(func, symbol, logger): symbol
         for symbol in symbols
     }
 
 
 def scan_and_collect_results(symbols: list[str],
-                             logger: logging.Logger) -> tuple[list, list]:
+                             logger: logging.Logger,
+                             func=core.process_symbol) -> tuple[list, list]:
     """Process all symbols concurrently and collect successes and failures."""
     rows: list[dict] = []
     failed: list[str] = []
     with ThreadPoolExecutor(max_workers=16) as executor:
-        futures = submit_symbol_futures(symbols, executor, logger)
+        futures = submit_symbol_futures(symbols, executor, logger, func)
         for future in tqdm(as_completed(futures), total=len(futures),
                            desc="Scanning"):
             symbol = futures[future]
@@ -208,19 +209,60 @@ def run_scan(logger: logging.Logger) -> None:
         return
 
     clean_existing_excels(logger)
-    logger.info("Scanning symbols in parallel...")
+    logger.info("Scanning volume metrics...")
 
-    rows, failed = scan_and_collect_results([s for s, _ in all_symbols], logger)
+    volume_rows, failed = scan_and_collect_results(
+        [s for s, _ in all_symbols],
+        logger,
+        core.process_symbol,
+    )
 
     volume_map = dict(all_symbols)
-    for row in rows:
+    for row in volume_rows:
+        row["24h USD Volume"] = volume_map.get(row["Symbol"], 0)
+
+    logger.info("Scanning funding rates...")
+    funding_rows, _ = scan_and_collect_results(
+        [s for s, _ in all_symbols],
+        logger,
+        core.process_symbol_funding,
+    )
+    for row in funding_rows:
+        row["24h USD Volume"] = volume_map.get(row["Symbol"], 0)
+
+    logger.info("Scanning open interest changes...")
+    oi_rows, _ = scan_and_collect_results(
+        [s for s, _ in all_symbols],
+        logger,
+        core.process_symbol_open_interest,
+    )
+    for row in oi_rows:
         row["24h USD Volume"] = volume_map.get(row["Symbol"], 0)
 
     if failed:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
 
-    export_to_excel(pd.DataFrame(rows), [s for s, _ in all_symbols], logger)
+    export_to_excel(pd.DataFrame(volume_rows), [s for s, _ in all_symbols], logger)
     logger.info("Export complete: Crypto_Volume.xlsx")
+
+    export_to_excel(
+        pd.DataFrame(funding_rows),
+        [s for s, _ in all_symbols],
+        logger,
+        filename="Funding_Rates.xlsx",
+        header="Latest Funding Rates",
+    )
+    logger.info("Export complete: Funding_Rates.xlsx")
+
+    export_to_excel(
+        pd.DataFrame(oi_rows),
+        [s for s, _ in all_symbols],
+        logger,
+        filename="Open_Interest.xlsx",
+        header="% Change in Open Interest",
+    )
+    logger.info("Export complete: Open_Interest.xlsx")
+
     send_push_notification(
         "Volume scan complete",
         "Crypto_Volume.xlsx has been exported.",

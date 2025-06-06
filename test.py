@@ -85,19 +85,11 @@ def test_setup_logging():
 def test_process_symbol_with_mocked_logger():
     """Ensure process_symbol runs with valid klines and mocked logger."""
     mock_klines = [[str(i), "", "", "", "", "2"] for i in range(5040)]
-    with patch("core.fetch_recent_klines", return_value=mock_klines), \
-         patch("core.get_open_interest_change", return_value=5.0):
+    with patch("core.fetch_recent_klines", return_value=mock_klines):
         result = core.process_symbol("BTCUSDT", MagicMock())
         assert isinstance(result, dict)
         assert result["Symbol"] == "BTCUSDT"
-        assert "5M" in result
-        assert "15M" in result
-        assert "30M" in result
-        assert "1H" in result
-        assert "4H" in result
-        assert "Funding Rate" in result
-        assert "Open Interest Change" in result
-        assert "Funding Rate Timestamp" not in result
+        assert set(result) == {"Symbol", "5M", "15M", "30M", "1H", "4H"}
 
 
 def test_calculate_price_correlation_perfect():
@@ -116,7 +108,22 @@ def test_process_symbol_correlation_with_mocked_logger():
         assert isinstance(result, dict)
         assert result["Symbol"] == "ETHUSDT"
         assert "5M" in result
-        assert "Funding Rate" in result
+        assert set(result) == {"Symbol", "5M", "15M", "30M", "1H", "4H"}
+
+
+def test_process_symbol_open_interest_with_mocked_logger():
+    """Ensure open interest metrics include all timeframes."""
+    with patch("core.get_open_interest_change", return_value=5.0):
+        result = core.process_symbol_open_interest("XRPUSDT", MagicMock())
+        expected_keys = {"Symbol", "5M", "15M", "30M", "1H", "4H"}
+        assert set(result.keys()) == expected_keys
+
+
+def test_process_symbol_funding_with_mocked_logger():
+    """Ensure funding rate metric returns correct mapping."""
+    with patch("core.get_funding_rate", return_value=(0.001, 0)):
+        result = core.process_symbol_funding("XRPUSDT", MagicMock())
+        assert result == {"Symbol": "XRPUSDT", "Funding Rate": 0.001}
 
 def test_get_funding_rate_success_timestamp():
     """Ensure timestamp reflects when the rate was fetched."""
@@ -274,7 +281,6 @@ def test_export_to_excel_swaps_column_order():
             "Funding Rate": 0.001,
             "24h USD Volume": 1000,
             "5M": 1,
-            "Open Interest Change": 2,
         }
     ])
     logger = MagicMock()

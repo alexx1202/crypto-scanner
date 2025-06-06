@@ -1,9 +1,13 @@
 # Bybit Volume Scanner
 
 This project scans Bybit USDT perpetual markets for unusual volume activity.
-The resulting spreadsheet includes each pair's latest funding rate, 24​hr trading volume,
-and the percentage change in open interest over the same period.
-The "24h USD Volume" column is exported before the "Funding Rate" column.
+Results are written to multiple spreadsheets:
+
+* ``Crypto_Volume.xlsx`` containing volume change statistics
+* ``Funding_Rates.xlsx`` with the latest funding rate for each pair
+* ``Open_Interest.xlsx`` showing percent changes in open interest across several timeframes
+
+All rows in every sheet are ordered by ``24h USD Volume`` in descending order.
 
 ## Installation
 
