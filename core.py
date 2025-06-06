@@ -16,6 +16,7 @@ import volatility_math
 
 KLINE_CACHE = {}
 SORTED_KLINES_CACHE: dict[int, list] = {}
+MAX_DUPLICATE_RETRIES = 3
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, "logs")
@@ -122,17 +123,22 @@ def fetch_with_backoff(url: str, symbol: str, logger: logging.Logger) -> list:
     return []
 
 
-def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> list:
+def fetch_recent_klines(
+    symbol: str,
+    interval: str = "1",
+    total: int = 5040,
+    *,
+    use_cache: bool = True,
+) -> list:
     """Return ``total`` klines for ``symbol`` using backoff retry logic."""
     logger = get_debug_logger()
     main_logger = logging.getLogger("volume_logger")
 
-    if symbol in KLINE_CACHE:
+    if use_cache and symbol in KLINE_CACHE:
         return KLINE_CACHE[symbol][-total:]
 
     seen_chunks = set()
     consecutive_duplicates = 0
-    max_consecutive_duplicates = 3
     all_klines = []
     end_time = get_kline_end_time()
 
@@ -150,7 +156,7 @@ def fetch_recent_klines(symbol: str, interval: str = "1", total: int = 5040) -> 
             if chunk_key in seen_chunks:
                 consecutive_duplicates += 1
                 logger.debug("[%s] Duplicate chunk #%d detected.", symbol, consecutive_duplicates)
-                if consecutive_duplicates >= max_consecutive_duplicates:
+                if consecutive_duplicates >= MAX_DUPLICATE_RETRIES:
                     logger.warning(
                         "%s: Max duplicate retries hit. Only %d klines gathered, expected %d.",
                         symbol,
@@ -286,7 +292,7 @@ def process_symbol_funding(symbol: str, _logger: logging.Logger) -> dict:
 
 def process_symbol_volatility(symbol: str, logger: logging.Logger) -> dict:
     """Return price range percentage movement metrics for ``symbol``."""
-    klines = fetch_recent_klines(symbol)
+    klines = fetch_recent_klines(symbol, use_cache=False)
     if not klines:
         logger.warning("%s skipped: No valid klines returned for volatility.", symbol)
         return None

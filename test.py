@@ -46,6 +46,16 @@ def test_fetch_recent_klines_exact_count():
         assert isinstance(result, list)
         assert len(result) == 5040
 
+
+def test_fetch_recent_klines_force_refresh():
+    """Cache is bypassed when ``use_cache`` is False."""
+    core.KLINE_CACHE["BTCUSDT"] = [["0", "", "", "", "", "1"]]
+    with patch("core.fetch_with_backoff", return_value=[] ) as mock_fetch, \
+         patch("core.build_kline_url", return_value="url"), \
+         patch("core.get_kline_end_time", return_value=1000):
+        core.fetch_recent_klines("BTCUSDT", total=1, use_cache=False)
+        mock_fetch.assert_called_once()
+
 def test_fetch_recent_klines_insufficient():
     """Test deduplication logic by simulating repeated stale API responses."""
     def build_chunk():
