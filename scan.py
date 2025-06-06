@@ -68,6 +68,15 @@ def send_push_notification(title: str, message: str, logger: logging.Logger) -> 
 
     try:
         notifier = notifier_class()
+        if hasattr(notifier, "on_destroy"):
+            original = notifier.on_destroy
+
+            def _on_destroy(hwnd, msg, wparam, lparam) -> int:
+                original(hwnd, msg, wparam, lparam)
+                return 0
+
+            notifier.on_destroy = _on_destroy
+
         notifier.show_toast(title, message, duration=5)
         logger.info("Windows notification sent")
     except (OSError, TypeError) as exc:  # pragma: no cover - platform specific error
