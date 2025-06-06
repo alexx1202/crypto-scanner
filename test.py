@@ -129,6 +129,23 @@ def test_get_open_interest_change():
         change = core.get_open_interest_change("BTCUSDT")
         assert round(change, 4) == 10.0
 
+
+def test_get_open_interest_change_sorts_by_timestamp():
+    """Ensure change calculation sorts rows by timestamp."""
+    mock_data = {
+        "result": {
+            "list": [
+                {"openInterest": "110", "timestamp": "2"},
+                {"openInterest": "100", "timestamp": "1"},
+            ]
+        }
+    }
+    with patch("core.requests.get") as mock_get:
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_data
+        change = core.get_open_interest_change("BTCUSDT")
+        assert round(change, 4) == 10.0
+
 # -------------------------------
 # Tests for volume_math.calculate_volume_change
 # -------------------------------
