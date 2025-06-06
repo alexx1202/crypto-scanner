@@ -117,7 +117,7 @@ def test_process_symbol_open_interest_with_mocked_logger():
     """Ensure open interest metrics include all timeframes."""
     with patch("core.get_open_interest_change", return_value=5.0):
         result = core.process_symbol_open_interest("XRPUSDT", MagicMock())
-        expected_keys = {"Symbol", "5M", "15M", "30M", "1H", "4H"}
+        expected_keys = {"Symbol", "5M", "15M", "30M", "1H", "4H", "1D", "1W", "1M"}
         assert set(result.keys()) == expected_keys
 
 
