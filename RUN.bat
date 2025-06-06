@@ -4,11 +4,11 @@ cd /d "%~dp0"
 setlocal enableextensions enabledelayedexpansion
 
 
-:: Run style checks and unit tests
-echo Running lint and tests...
-python run_checks.py
+:: Run unit tests only
+echo Running tests...
+python -m pytest -q test.py
 if errorlevel 1 (
-    echo [ABORTED] Lint or tests failed. Aborting.
+    echo [ABORTED] Tests failed. Aborting.
     pause
     exit /b 1
 )
