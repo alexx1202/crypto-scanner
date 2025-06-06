@@ -7,6 +7,8 @@ Results are written to multiple spreadsheets:
 * ``Funding_Rates.xlsx`` with the latest funding rate for each pair
 * ``Open_Interest.xlsx`` showing percent changes in open interest across several timeframes
 
+The funding and open interest sheets omit the ``24h USD Volume`` column, but rows remain sorted using this metric.
+
 All rows in every sheet are ordered by ``24h USD Volume`` in descending order.
 
 ## Installation

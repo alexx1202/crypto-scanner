@@ -271,9 +271,9 @@ def get_open_interest_changes(symbol: str) -> dict:
 
 def process_symbol_open_interest(symbol: str, _logger: logging.Logger) -> dict:
     """Return open interest change metrics for ``symbol``."""
-    changes = get_open_interest_changes(symbol)
-    changes["Symbol"] = symbol
-    return changes
+    result = {"Symbol": symbol}
+    result.update(get_open_interest_changes(symbol))
+    return result
 
 
 def process_symbol_funding(symbol: str, _logger: logging.Logger) -> dict:
