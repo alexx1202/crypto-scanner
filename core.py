@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import requests
 from tqdm import tqdm
 from volume_math import calculate_volume_change
+import correlation_math
 
 KLINE_CACHE = {}
 SORTED_KLINES_CACHE: dict[int, list] = {}
@@ -203,64 +204,6 @@ def get_open_interest_change(symbol: str) -> float:
         "https://api.bybit.com/v5/market/open-interest"
         f"?category=linear&symbol={symbol}&interval=1h&limit=24"
     )
-    logger = get_debug_logger()
-    for attempt in range(3):
-        try:
-            response = requests.get(url, headers=get_auth_headers(), timeout=10)
-            if response.status_code == 429:
-                delay = round(random.uniform(1.0, 2.5), 2)
-                logger.warning(
-                    "[%s] OI rate limit hit. Retrying in %.2fs...",
-                    symbol,
-                    delay,
-                )
-                time.sleep(delay)
-                continue
-            response.raise_for_status()
-            data = response.json()
-            if data.get("retCode") not in (0, None):
-                logger.warning(
-                    "[%s] OI API error %s: %s",
-                    symbol,
-                    data.get("retCode"),
-                    data.get("retMsg"),
-                )
-                time.sleep(1)
-                continue
-            rows = data.get("result", {}).get("list", [])
-            if len(rows) < 2:
-                return 0.0
-
-            rows.sort(key=lambda r: int(r.get("timestamp") or 0))
-
-            def extract_oi(row: dict) -> float:
-                for key in (
-                    "openInterest",
-                    "open_interest",
-                    "sumOpenInterest",
-                    "openInterestValue",
-                    "sumOpenInterestValue",
-                ):
-                    if key in row:
-                        try:
-                            return float(row.get(key, 0))
-                        except (TypeError, ValueError):
-                            return 0.0
-                return 0.0
-
-            first = extract_oi(rows[0])
-            last = extract_oi(rows[-1])
-            if first == 0:
-                return 0.0
-            return ((last - first) / first) * 100
-        except (KeyError, ValueError, IndexError, requests.RequestException) as err:
-            logger.warning(
-                "[%s] OI request attempt %d failed: %s", symbol, attempt + 1, err
-            )
-            time.sleep(1)
-    logger.error("[%s] Failed to fetch open interest after retries", symbol)
-    return 0.0
-
 
 def process_symbol(symbol: str, logger: logging.Logger) -> dict:
     """Fetch indicator data for ``symbol`` and return a result row."""
@@ -277,6 +220,25 @@ def process_symbol(symbol: str, logger: logging.Logger) -> dict:
         "30M": round(calculate_volume_change(klines, 30), 4),
         "1H": round(calculate_volume_change(klines, 60), 4),
         "4H": round(calculate_volume_change(klines, 240), 4),
+        "Funding Rate": rate,
+        "Open Interest Change": round(oi_change, 4),
+    }
+
+def process_symbol_correlation(symbol: str, btc_klines: list, logger: logging.Logger) -> dict:
+    """Return correlation metrics for ``symbol`` vs BTCUSDT."""
+    klines = fetch_recent_klines(symbol)
+    if not klines or not btc_klines:
+        logger.warning("%s skipped: No valid klines returned for correlation.", symbol)
+        return None
+    rate, _ = get_funding_rate(symbol)
+    oi_change = get_open_interest_change(symbol)
+    return {
+        "Symbol": symbol,
+        "5M": round(correlation_math.calculate_price_correlation(klines, btc_klines, 5), 4),
+        "15M": round(correlation_math.calculate_price_correlation(klines, btc_klines, 15), 4),
+        "30M": round(correlation_math.calculate_price_correlation(klines, btc_klines, 30), 4),
+        "1H": round(correlation_math.calculate_price_correlation(klines, btc_klines, 60), 4),
+        "4H": round(correlation_math.calculate_price_correlation(klines, btc_klines, 240), 4),
         "Funding Rate": rate,
         "Open Interest Change": round(oi_change, 4),
     }

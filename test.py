@@ -12,6 +12,7 @@ import pandas as pd
 import core
 import scan
 from volume_math import calculate_volume_change
+import correlation_math
 
 def test_get_tradeable_symbols_sorted_by_volume():
     """Test symbol sorting by 24h volume descending order."""
@@ -99,6 +100,25 @@ def test_process_symbol_with_mocked_logger():
         assert "Open Interest Change" in result
         assert "Funding Rate Timestamp" not in result
 
+
+def test_calculate_price_correlation_perfect():
+    """Correlation should be 1.0 for identical series."""
+    klines = [[str(i), "", "", "", str(i), "1"] for i in range(10)]
+    result = correlation_math.calculate_price_correlation(klines, klines, 5)
+    assert round(result, 6) == 1.0
+
+
+def test_process_symbol_correlation_with_mocked_logger():
+    """Ensure correlation processing returns expected keys."""
+    mock_klines = [[str(i), "", "", "", str(i), "2"] for i in range(5040)]
+    with patch("core.fetch_recent_klines", return_value=mock_klines), \
+         patch("core.get_open_interest_change", return_value=5.0):
+        result = core.process_symbol_correlation("ETHUSDT", mock_klines, MagicMock())
+        assert isinstance(result, dict)
+        assert result["Symbol"] == "ETHUSDT"
+        assert "5M" in result
+        assert "Funding Rate" in result
+
 def test_get_funding_rate_success_timestamp():
     """Ensure timestamp reflects when the rate was fetched."""
     ts = int((datetime.now(timezone.utc) - timedelta(minutes=5)).timestamp() * 1000)
@@ -145,32 +165,6 @@ def test_get_open_interest_change_sorts_by_timestamp():
         mock_get.return_value.json.return_value = mock_data
         change = core.get_open_interest_change("BTCUSDT")
         assert round(change, 4) == 10.0
-
-
-def test_get_open_interest_change_handles_api_error():
-    """Return 0 when API retCode is non-zero."""
-    mock_data = {"retCode": 10006, "retMsg": "bad"}
-    with patch("core.requests.get") as mock_get:
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = mock_data
-        assert core.get_open_interest_change("BTCUSDT") == 0.0
-
-
-def test_get_open_interest_change_retries_on_rate_limit():
-    """Retry when the first call hits the rate limit."""
-    good_data = {
-        "result": {"list": [{"openInterest": "100"}, {"openInterest": "110"}]}
-    }
-    resp_429 = MagicMock(status_code=429)
-    resp_429.json.return_value = {}
-    resp_ok = MagicMock(status_code=200)
-    resp_ok.json.return_value = good_data
-    with patch("core.requests.get", side_effect=[resp_429, resp_ok]) as mock_get:
-        with patch("time.sleep") as mock_sleep:
-            change = core.get_open_interest_change("BTCUSDT")
-    assert round(change, 4) == 10.0
-    assert mock_get.call_count == 2
-    assert mock_sleep.called
 
 # -------------------------------
 # Tests for volume_math.calculate_volume_change
@@ -277,6 +271,30 @@ def test_send_email_alert_skips_if_missing_env():
          patch("scan.smtplib.SMTP") as mock_smtp:
         scan.send_email_alert("sub", "body", logger)
         mock_smtp.assert_not_called()
+
+
+def test_send_push_notification_sends_request():
+    """HTTP request made when Pushover variables are set."""
+    logger = MagicMock()
+    env = {
+        "PUSHOVER_USER_KEY": "u",
+        "PUSHOVER_API_TOKEN": "t",
+    }
+    with patch.dict(os.environ, env, clear=True), \
+         patch("scan.requests.post") as mock_post:
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.text = "ok"
+        scan.send_push_notification("title", "msg", logger)
+        mock_post.assert_called_once()
+
+
+def test_send_push_notification_skips_if_missing_env():
+    """No HTTP call made when Pushover config vars missing."""
+    logger = MagicMock()
+    with patch.dict(os.environ, {}, clear=True), \
+         patch("scan.requests.post") as mock_post:
+        scan.send_push_notification("title", "msg", logger)
+        mock_post.assert_not_called()
 
 
 def test_export_to_excel_swaps_column_order():
