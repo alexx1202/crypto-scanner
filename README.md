@@ -56,6 +56,7 @@ All logs are written to the `logs` directory in the project root:
 ## Windows Notifications
 
 If the optional `win10toast` package is installed and the script is run on
-Windows, a toast notification is shown when scans finish. No additional
-configuration is required. On other platforms the notification step is skipped.
+Windows, a toast notification is shown when scans finish. Install it using
+`pip install win10toast`. No extra configuration is required. On other
+platforms the notification step is skipped.
 
