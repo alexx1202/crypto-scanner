@@ -1,6 +1,6 @@
-# Bybit Volume Scanner
+# Bybit Crypto Scanner
 
-This project scans Bybit USDT perpetual markets for unusual volume activity.
+This project scans Bybit USDT perpetual markets.
 Results are written to multiple spreadsheets:
 
 * ``Crypto_Volume.xlsx`` containing volume change statistics
