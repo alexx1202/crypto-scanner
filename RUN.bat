@@ -13,9 +13,11 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Run main script
-echo Running scan.py...
-python scan.py
+:: Run continuous scan
+echo Starting continuous_scan.py...
+python continuous_scan.py
+
+echo Press Ctrl+C to stop scanning.
 
 echo Done.
 pause
