@@ -335,11 +335,12 @@ def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-a
     vol_df: pd.DataFrame,
     symbol_order: list[str],
     logger: logging.Logger,
+    filename: str = "Scan.xlsx",
 ) -> None:
-    """Write all metric DataFrames to ``Scan.xlsx``."""
+    """Write all metric DataFrames to an Excel file."""
 
-    wait_for_file_close("Scan.xlsx", logger)
-    with pd.ExcelWriter("Scan.xlsx", engine="xlsxwriter") as writer:
+    wait_for_file_close(filename, logger)
+    with pd.ExcelWriter(filename, engine="xlsxwriter") as writer:
         export_to_excel(
             volume_df,
             symbol_order,
@@ -381,7 +382,7 @@ def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-a
             sheet_name="Price Movement",
             apply_conditional_formatting=False,
         )
-    logger.info("Export complete: Scan.xlsx")
+    logger.info("Export complete: %s", filename)
 
 
 def main() -> None:
