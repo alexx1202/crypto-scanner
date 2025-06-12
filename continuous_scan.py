@@ -10,6 +10,7 @@ import core
 def run_periodic_scans(interval_minutes: int = 30) -> None:
     """Run a volume scan every ``interval_minutes`` minutes."""
     logger = scan.setup_logging()
+    logger.info("Continuous scan started. Press Ctrl+C to stop.")
     while True:
         logger.info("Starting periodic scan")
         try:
@@ -19,6 +20,9 @@ def run_periodic_scans(interval_minutes: int = 30) -> None:
 
             if not all_symbols:
                 logger.warning("No symbols retrieved. Skipping export.")
+                logger.info(
+                    "Waiting %d minutes for next scan...", interval_minutes
+                )
                 time.sleep(interval_minutes * 60)
                 continue
 
