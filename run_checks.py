@@ -14,6 +14,7 @@ LOG_DIR = core.LOG_DIR
 PY_FILES = [
     "core.py",
     "scan.py",
+    "continuous_scan.py",
     "test.py",
     "volume_math.py",
     "correlation_math.py",
