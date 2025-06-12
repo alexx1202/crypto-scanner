@@ -118,11 +118,7 @@ def export_to_excel(
     df.to_excel(writer, index=False, sheet_name=sheet_name, startrow=1)
     worksheet = writer.sheets[sheet_name]
     header_format = writer.book.add_format({"bold": True})
-    end_col = chr(ord("A") + len(df.columns) - 1)
-    if len(df.columns) > 2:
-        worksheet.merge_range(f"B1:{end_col}1", header, header_format)
-    else:
-        worksheet.write("B1", header, header_format)
+    worksheet.write("B1", header, header_format)
     worksheet.freeze_panes(2, 0)
 
     red_format = writer.book.add_format({

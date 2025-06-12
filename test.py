@@ -341,10 +341,10 @@ def test_export_to_excel_skips_conditional_formatting():
         worksheet.conditional_format.assert_not_called()
 
 
-def test_export_to_excel_writes_header_without_merge():
-    """Header is written directly when only one metric column exists."""
+def test_export_to_excel_does_not_merge_cells():
+    """Header is written directly and no cells are merged."""
     df = pd.DataFrame([
-        {"Symbol": "BTCUSDT", "5M": 1.0}
+        {"Symbol": "BTCUSDT", "5M": 1.0, "15M": 0.5}
     ])
     logger = MagicMock()
     with patch("scan.pd.ExcelWriter") as mock_writer, \
