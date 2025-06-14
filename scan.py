@@ -118,7 +118,7 @@ def export_to_excel(
     df.to_excel(writer, index=False, sheet_name=sheet_name, startrow=1)
     worksheet = writer.sheets[sheet_name]
     header_format = writer.book.add_format({"bold": True})
-    worksheet.write("B1", header, header_format)
+    worksheet.write("A1", header, header_format)
     worksheet.freeze_panes(2, 0)
 
     red_format = writer.book.add_format({
