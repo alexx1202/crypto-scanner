@@ -323,12 +323,32 @@ def run_volatility_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd.
     return pd.DataFrame(rows)
 
 
+def run_price_change_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd.DataFrame:
+    """Compute close price change for each symbol."""
+    logger.info("Starting price change scan...")
+    if not all_symbols:
+        logger.warning("No symbols retrieved. Skipping price change export.")
+        return pd.DataFrame()
+
+    rows, failed = scan_and_collect_results(
+        [s for s, _ in all_symbols],
+        logger,
+        core.process_symbol_price_change,
+    )
+
+    if failed:
+        logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
+
+    return pd.DataFrame(rows)
+
+
 def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     volume_df: pd.DataFrame,
     funding_df: pd.DataFrame,
     oi_df: pd.DataFrame,
     corr_df: pd.DataFrame,
     vol_df: pd.DataFrame,
+    price_df: pd.DataFrame,
     symbol_order: list[str],
     logger: logging.Logger,
     filename: str = "Scan.xlsx",
@@ -378,6 +398,14 @@ def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-a
             sheet_name="Price Movement",
             apply_conditional_formatting=False,
         )
+        export_to_excel(
+            price_df,
+            symbol_order,
+            logger,
+            header="% Price Change",
+            writer=writer,
+            sheet_name="Price Change",
+        )
     logger.info("Export complete: %s", filename)
 
 
@@ -398,6 +426,7 @@ def main() -> None:
         volume_df, funding_df, oi_df, symbol_order = run_scan(all_symbols, logger)
         corr_df = run_correlation_scan(all_symbols, logger)
         vol_df = run_volatility_scan(all_symbols, logger)
+        price_df = run_price_change_scan(all_symbols, logger)
 
         export_all_data(
             volume_df,
@@ -405,6 +434,7 @@ def main() -> None:
             oi_df,
             corr_df,
             vol_df,
+            price_df,
             symbol_order,
             logger,
         )

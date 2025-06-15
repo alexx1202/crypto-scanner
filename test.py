@@ -13,6 +13,7 @@ import scan
 from volume_math import calculate_volume_change
 import correlation_math
 import volatility_math
+import price_change_math
 
 def test_get_tradeable_symbols_sorted_by_volume():
     """Test symbol sorting by 24h volume descending order."""
@@ -316,6 +317,25 @@ def test_process_symbol_volatility_with_mocked_logger():
     mock_klines = [[str(i), "1", "10", "8", "", "1"] for i in range(5040)]
     with patch("core.fetch_recent_klines", return_value=mock_klines):
         result = core.process_symbol_volatility("BTCUSDT", MagicMock())
+        expected_keys = {"Symbol", "5M", "15M", "30M", "1H", "4H"}
+        assert set(result.keys()) == expected_keys
+
+
+def test_calculate_price_change_percent():
+    """Calculate close-to-close change for latest block."""
+    klines = [
+        [str(i), "", "", "", str(i + 1), "1"]
+        for i in range(5)
+    ] + [["5", "", "", "", "2", "1"]]
+    result = price_change_math.calculate_price_change_percent(klines, 5)
+    assert round(result, 2) == 100.0
+
+
+def test_process_symbol_price_change_with_mocked_logger():
+    """Ensure price change metrics include expected keys."""
+    mock_klines = [[str(i), "", "", "", str(i), "1"] for i in range(5040)]
+    with patch("core.fetch_recent_klines", return_value=mock_klines):
+        result = core.process_symbol_price_change("BTCUSDT", MagicMock())
         expected_keys = {"Symbol", "5M", "15M", "30M", "1H", "4H"}
         assert set(result.keys()) == expected_keys
 

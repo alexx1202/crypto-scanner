@@ -6,6 +6,7 @@ Results are written to multiple spreadsheets:
 * ``Crypto_Volume.xlsx`` containing volume change statistics
 * ``Funding_Rates.xlsx`` with the latest funding rate for each pair
 * ``Open_Interest.xlsx`` showing percent changes in open interest across several timeframes, now including 1 day, 1 week and 1 month intervals
+* ``Price_Change.xlsx`` listing the percentage price change over common intraday periods
 
 The funding and open interest sheets omit the ``24h USD Volume`` column, but rows remain sorted using this metric.
 
