@@ -13,6 +13,7 @@ from tqdm import tqdm
 from volume_math import calculate_volume_change
 import correlation_math
 import volatility_math
+import price_change_math
 
 MAX_DUPLICATE_RETRIES = 3
 
@@ -300,4 +301,20 @@ def process_symbol_volatility(symbol: str, logger: logging.Logger) -> dict:
         "30M": round(volatility_math.calculate_price_range_percent(klines, 30), 4),
         "1H": round(volatility_math.calculate_price_range_percent(klines, 60), 4),
         "4H": round(volatility_math.calculate_price_range_percent(klines, 240), 4),
+    }
+
+
+def process_symbol_price_change(symbol: str, logger: logging.Logger) -> dict:
+    """Return close price change metrics for ``symbol``."""
+    klines = fetch_recent_klines(symbol)
+    if not klines:
+        logger.warning("%s skipped: No valid klines returned for price change.", symbol)
+        return None
+    return {
+        "Symbol": symbol,
+        "5M": round(price_change_math.calculate_price_change_percent(klines, 5), 4),
+        "15M": round(price_change_math.calculate_price_change_percent(klines, 15), 4),
+        "30M": round(price_change_math.calculate_price_change_percent(klines, 30), 4),
+        "1H": round(price_change_math.calculate_price_change_percent(klines, 60), 4),
+        "4H": round(price_change_math.calculate_price_change_percent(klines, 240), 4),
     }
