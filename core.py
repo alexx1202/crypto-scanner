@@ -14,6 +14,7 @@ from volume_math import calculate_volume_change
 import correlation_math
 import volatility_math
 import price_change_math
+import percentile_math
 
 MAX_DUPLICATE_RETRIES = 3
 
@@ -310,11 +311,25 @@ def process_symbol_price_change(symbol: str, logger: logging.Logger) -> dict:
     if not klines:
         logger.warning("%s skipped: No valid klines returned for price change.", symbol)
         return None
-    return {
-        "Symbol": symbol,
-        "5M": round(price_change_math.calculate_price_change_percent(klines, 5), 4),
-        "15M": round(price_change_math.calculate_price_change_percent(klines, 15), 4),
-        "30M": round(price_change_math.calculate_price_change_percent(klines, 30), 4),
-        "1H": round(price_change_math.calculate_price_change_percent(klines, 60), 4),
-        "4H": round(price_change_math.calculate_price_change_percent(klines, 240), 4),
-    }
+    sorted_klines = sorted(klines, key=lambda k: int(k[0]))
+
+    def gather_changes(size: int) -> list[float]:
+        values: list[float] = []
+        for i in range(0, len(sorted_klines) - (size + 1) + 1):
+            window = sorted_klines[i:i + size + 1]
+            values.append(price_change_math.calculate_price_change_percent(window, size))
+        return values
+
+    result = {"Symbol": symbol}
+    for size, label in [(5, "5M"), (15, "15M"), (30, "30M"), (60, "1H"), (240, "4H")]:
+        changes = gather_changes(size)
+        latest = changes[-1] if changes else 0.0
+        percentile = (
+            percentile_math.percentile_rank(changes[:-1], latest)
+            if len(changes) > 1
+            else 0.0
+        )
+        result[label] = round(latest, 4)
+        result[f"{label} Percentile"] = round(percentile, 4)
+
+    return result

@@ -145,6 +145,11 @@ def export_to_excel(
             "30M",
             "1H",
             "4H",
+            "5M Percentile",
+            "15M Percentile",
+            "30M Percentile",
+            "1H Percentile",
+            "4H Percentile",
             "1D",
             "1W",
             "1M",
@@ -339,7 +344,18 @@ def run_price_change_scan(all_symbols: list[tuple], logger: logging.Logger) -> p
     if failed:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    for col in [
+        "5M Percentile",
+        "15M Percentile",
+        "30M Percentile",
+        "1H Percentile",
+        "4H Percentile",
+    ]:
+        if col in df.columns:
+            df[col] = df[col].astype(float)
+
+    return df
 
 
 def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-arguments
