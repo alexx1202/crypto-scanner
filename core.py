@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 
 import requests
 from tqdm import tqdm
-from volume_math import calculate_volume_change
 import correlation_math
 import volatility_math
 import price_change_math
@@ -199,8 +198,8 @@ def get_funding_rate(symbol: str) -> tuple[float, int]:
         return 0.0, 0
 
 
-def get_open_interest_change(symbol: str, interval: str = "1h", limit: int = 24) -> float:
-    """Return the open interest percentage change for ``symbol``."""
+def get_open_interest_history(symbol: str, interval: str, limit: int = 200) -> list:
+    """Return raw open interest rows for ``symbol``."""
     url = (
         "https://api.bybit.com/v5/market/open-interest"
         f"?category=linear&symbol={symbol}&intervalTime={interval}&limit={limit}"
@@ -209,34 +208,72 @@ def get_open_interest_change(symbol: str, interval: str = "1h", limit: int = 24)
         response = requests.get(url, headers=get_auth_headers(), timeout=10)
         response.raise_for_status()
         rows = response.json().get("result", {}).get("list", [])
-        if len(rows) < 2:
+        return sorted(rows, key=lambda r: int(r.get("timestamp", 0)))
+    except requests.RequestException:
+        logging.getLogger("volume_logger").warning(
+            "Failed to fetch open interest history for %s", symbol
+        )
+        return []
+
+
+def get_open_interest_change(symbol: str, interval: str = "1h", limit: int = 24) -> float:
+    """Return the open interest percentage change for ``symbol``."""
+    rows_sorted = get_open_interest_history(symbol, interval, limit)
+    try:
+        if len(rows_sorted) < 2:
             raise ValueError("insufficient data")
-        rows_sorted = sorted(rows, key=lambda r: int(r.get("timestamp", 0)))
         first = float(rows_sorted[0].get("openInterest", 0))
         last = float(rows_sorted[-1].get("openInterest", 0))
         if first == 0:
             return 0.0
         return (last - first) / first * 100
-    except (ValueError, KeyError, requests.RequestException):
+    except (ValueError, KeyError, TypeError):
         logging.getLogger("volume_logger").warning(
             "Failed to fetch open interest change for %s", symbol
         )
         return 0.0
 
 def process_symbol(symbol: str, logger: logging.Logger) -> dict:
-    """Return volume percentage change metrics for ``symbol``."""
+    """Return volume percentage change metrics for ``symbol`` with percentiles."""
     klines = fetch_recent_klines(symbol)
     if not klines:
         logger.warning("%s skipped: No valid klines returned.", symbol)
         return None
-    return {
-        "Symbol": symbol,
-        "5M": round(calculate_volume_change(klines, 5), 4),
-        "15M": round(calculate_volume_change(klines, 15), 4),
-        "30M": round(calculate_volume_change(klines, 30), 4),
-        "1H": round(calculate_volume_change(klines, 60), 4),
-        "4H": round(calculate_volume_change(klines, 240), 4),
-    }
+    sorted_klines = sorted(klines, key=lambda k: int(k[0]))
+
+    def gather_changes(size: int) -> list[float]:
+        blocks = [
+            sorted_klines[i:i + size]
+            for i in range(0, len(sorted_klines) - (size - 1), size)
+            if len(sorted_klines[i:i + size]) == size
+        ]
+        values: list[float] = []
+        for i in range(20, len(blocks)):
+            latest = blocks[i]
+            previous = blocks[i - 20:i]
+            sum_latest = sum(float(k[5]) for k in latest)
+            avg_previous = sum(
+                sum(float(k[5]) for k in blk) for blk in previous
+            ) / len(previous)
+            if avg_previous == 0:
+                values.append(0.0)
+            else:
+                values.append((sum_latest - avg_previous) / avg_previous * 100)
+        return values
+
+    result = {"Symbol": symbol}
+    for size, label in [(5, "5M"), (15, "15M"), (30, "30M"), (60, "1H"), (240, "4H")]:
+        changes = gather_changes(size)
+        latest = changes[-1] if changes else 0.0
+        percentile = (
+            percentile_math.percentile_rank(changes[:-1], latest)
+            if len(changes) > 1
+            else 0.0
+        )
+        result[label] = round(latest, 4)
+        result[f"{label} Percentile"] = round(percentile, 4)
+
+    return result
 
 def process_symbol_correlation(symbol: str, btc_klines: list, logger: logging.Logger) -> dict:
     """Return correlation metrics for ``symbol`` vs BTCUSDT."""
@@ -276,10 +313,33 @@ def get_open_interest_changes(symbol: str) -> dict:
     return result
 
 
+def _gather_open_interest_changes(rows: list, window: int) -> list[float]:
+    values = [float(r.get("openInterest", 0)) for r in rows]
+    changes: list[float] = []
+    for i in range(window, len(values)):
+        first = values[i - window]
+        last = values[i]
+        if first == 0:
+            changes.append(0.0)
+        else:
+            changes.append((last - first) / first * 100)
+    return changes
+
+
 def process_symbol_open_interest(symbol: str, _logger: logging.Logger) -> dict:
-    """Return open interest change metrics for ``symbol``."""
+    """Return open interest change metrics with percentiles for ``symbol``."""
     result = {"Symbol": symbol}
-    result.update(get_open_interest_changes(symbol))
+    for name, (interval, window) in OPEN_INTEREST_INTERVALS.items():
+        rows = get_open_interest_history(symbol, interval, 200)
+        changes = _gather_open_interest_changes(rows, window)
+        latest = changes[-1] if changes else 0.0
+        percentile = (
+            percentile_math.percentile_rank(changes[:-1], latest)
+            if len(changes) > 1
+            else 0.0
+        )
+        result[name] = round(latest, 4)
+        result[f"{name} Percentile"] = round(percentile, 4)
     return result
 
 
@@ -290,19 +350,33 @@ def process_symbol_funding(symbol: str, _logger: logging.Logger) -> dict:
 
 
 def process_symbol_volatility(symbol: str, logger: logging.Logger) -> dict:
-    """Return price range percentage movement metrics for ``symbol``."""
+    """Return price range percentage movement metrics with percentiles."""
     klines = fetch_recent_klines(symbol)
     if not klines:
         logger.warning("%s skipped: No valid klines returned for volatility.", symbol)
         return None
-    return {
-        "Symbol": symbol,
-        "5M": round(volatility_math.calculate_price_range_percent(klines, 5), 4),
-        "15M": round(volatility_math.calculate_price_range_percent(klines, 15), 4),
-        "30M": round(volatility_math.calculate_price_range_percent(klines, 30), 4),
-        "1H": round(volatility_math.calculate_price_range_percent(klines, 60), 4),
-        "4H": round(volatility_math.calculate_price_range_percent(klines, 240), 4),
-    }
+    sorted_klines = sorted(klines, key=lambda k: int(k[0]))
+
+    def gather_changes(size: int) -> list[float]:
+        values: list[float] = []
+        for i in range(size, len(sorted_klines) + 1):
+            window = sorted_klines[i - size:i]
+            values.append(volatility_math.calculate_price_range_percent(window, size))
+        return values
+
+    result = {"Symbol": symbol}
+    for size, label in [(5, "5M"), (15, "15M"), (30, "30M"), (60, "1H"), (240, "4H")]:
+        changes = gather_changes(size)
+        latest = changes[-1] if changes else 0.0
+        percentile = (
+            percentile_math.percentile_rank(changes[:-1], latest)
+            if len(changes) > 1
+            else 0.0
+        )
+        result[label] = round(latest, 4)
+        result[f"{label} Percentile"] = round(percentile, 4)
+
+    return result
 
 
 def process_symbol_price_change(symbol: str, logger: logging.Logger) -> dict:
