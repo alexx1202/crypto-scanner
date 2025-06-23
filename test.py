@@ -14,6 +14,7 @@ from volume_math import calculate_volume_change
 import correlation_math
 import volatility_math
 import price_change_math
+import percentile_math
 
 def test_get_tradeable_symbols_sorted_by_volume():
     """Test symbol sorting by 24h volume descending order."""
@@ -336,8 +337,27 @@ def test_process_symbol_price_change_with_mocked_logger():
     mock_klines = [[str(i), "", "", "", str(i), "1"] for i in range(5040)]
     with patch("core.fetch_recent_klines", return_value=mock_klines):
         result = core.process_symbol_price_change("BTCUSDT", MagicMock())
-        expected_keys = {"Symbol", "5M", "15M", "30M", "1H", "4H"}
+        expected_keys = {
+            "Symbol",
+            "5M",
+            "5M Percentile",
+            "15M",
+            "15M Percentile",
+            "30M",
+            "30M Percentile",
+            "1H",
+            "1H Percentile",
+            "4H",
+            "4H Percentile",
+        }
         assert set(result.keys()) == expected_keys
+
+
+def test_percentile_rank_basic():
+    """Percentile rank computes relative position of a value."""
+    values = [1.0, 2.0, 3.0, 4.0]
+    pct = percentile_math.percentile_rank(values, 3.0)
+    assert round(pct, 2) == 0.7
 
 
 def test_export_to_excel_skips_conditional_formatting():
@@ -381,3 +401,24 @@ def test_export_to_excel_does_not_merge_cells():
                              filename="x.xlsx", header="hdr")
         worksheet.merge_range.assert_not_called()
         worksheet.write.assert_any_call("A1", "hdr", fmt)
+
+
+def test_export_to_excel_formats_percentile_columns():
+    """Percentile columns receive percentage formatting."""
+    df = pd.DataFrame([
+        {"Symbol": "BTCUSDT", "5M": 1.0, "5M Percentile": 0.5}
+    ])
+    logger = MagicMock()
+    with patch("scan.pd.ExcelWriter") as mock_writer, \
+         patch("scan.wait_for_file_close"), \
+         patch("pandas.DataFrame.to_excel", autospec=True):
+        writer = MagicMock()
+        fmt = MagicMock()
+        writer.book.add_format.return_value = fmt
+        worksheet = MagicMock()
+        writer.sheets = {"Sheet1": worksheet}
+        mock_writer.return_value = writer
+
+        scan.export_to_excel(df, ["BTCUSDT"], logger)
+        idx = df.columns.get_loc("5M Percentile")
+        worksheet.set_column.assert_any_call(idx, idx, None, fmt)
