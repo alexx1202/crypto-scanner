@@ -93,7 +93,20 @@ def test_process_symbol_with_mocked_logger():
         result = core.process_symbol("BTCUSDT", MagicMock())
         assert isinstance(result, dict)
         assert result["Symbol"] == "BTCUSDT"
-        assert set(result) == {"Symbol", "5M", "15M", "30M", "1H", "4H"}
+        expected = {
+            "Symbol",
+            "5M",
+            "5M Percentile",
+            "15M",
+            "15M Percentile",
+            "30M",
+            "30M Percentile",
+            "1H",
+            "1H Percentile",
+            "4H",
+            "4H Percentile",
+        }
+        assert set(result.keys()) == expected
 
 
 def test_calculate_price_correlation_perfect():
@@ -117,10 +130,29 @@ def test_process_symbol_correlation_with_mocked_logger():
 
 def test_process_symbol_open_interest_with_mocked_logger():
     """Ensure open interest metrics include all timeframes."""
-    with patch("core.get_open_interest_change", return_value=5.0):
+    data = [{"openInterest": str(100 + i), "timestamp": str(i)} for i in range(50)]
+    with patch("core.get_open_interest_history", return_value=data):
         result = core.process_symbol_open_interest("XRPUSDT", MagicMock())
-        expected_keys = {"Symbol", "5M", "15M", "30M", "1H", "4H", "1D", "1W", "1M"}
-        assert set(result.keys()) == expected_keys
+        expected = {
+            "Symbol",
+            "5M",
+            "5M Percentile",
+            "15M",
+            "15M Percentile",
+            "30M",
+            "30M Percentile",
+            "1H",
+            "1H Percentile",
+            "4H",
+            "4H Percentile",
+            "1D",
+            "1D Percentile",
+            "1W",
+            "1W Percentile",
+            "1M",
+            "1M Percentile",
+        }
+        assert set(result.keys()) == expected
 
 
 def test_get_open_interest_changes_calls_expected_params():
@@ -318,8 +350,20 @@ def test_process_symbol_volatility_with_mocked_logger():
     mock_klines = [[str(i), "1", "10", "8", "", "1"] for i in range(5040)]
     with patch("core.fetch_recent_klines", return_value=mock_klines):
         result = core.process_symbol_volatility("BTCUSDT", MagicMock())
-        expected_keys = {"Symbol", "5M", "15M", "30M", "1H", "4H"}
-        assert set(result.keys()) == expected_keys
+        expected = {
+            "Symbol",
+            "5M",
+            "5M Percentile",
+            "15M",
+            "15M Percentile",
+            "30M",
+            "30M Percentile",
+            "1H",
+            "1H Percentile",
+            "4H",
+            "4H Percentile",
+        }
+        assert set(result.keys()) == expected
 
 
 def test_calculate_price_change_percent():
