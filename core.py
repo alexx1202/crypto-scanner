@@ -125,7 +125,7 @@ def fetch_with_backoff(url: str, symbol: str, logger: logging.Logger) -> list:
 def fetch_recent_klines(
     symbol: str,
     interval: str = "1",
-    total: int = 5040,
+    total: int = 5280,
 ) -> list:
     """Return ``total`` klines for ``symbol`` using backoff retry logic."""
     logger = get_debug_logger()

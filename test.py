@@ -39,14 +39,17 @@ def test_get_tradeable_symbols_sorted_by_volume():
 
 def test_fetch_recent_klines_exact_count():
     """Test fetch returns the exact number of klines requested."""
-    mock_klines = [[str(1717382400000 + i * 60000), "", "", "", "", "1"] for i in range(5040)]
+    mock_klines = [
+        [str(1717382400000 + i * 60000), "", "", "", "", "1"]
+        for i in range(5280)
+    ]
     mock_response = {"result": {"list": mock_klines}}
     with patch("core.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = mock_response
-        result = core.fetch_recent_klines("BTCUSDT", total=5040)
+        result = core.fetch_recent_klines("BTCUSDT", total=5280)
         assert isinstance(result, list)
-        assert len(result) == 5040
+        assert len(result) == 5280
 
 
 
@@ -64,7 +67,7 @@ def test_fetch_recent_klines_insufficient():
         return MagicMock(status_code=200, json=lambda: {"result": {"list": []}})
 
     with patch("core.requests.get", side_effect=side_effect):
-        result = core.fetch_recent_klines("BTCUSDT", total=5040)
+        result = core.fetch_recent_klines("BTCUSDT", total=5280)
         assert result == []
 
 def test_clean_existing_excels(tmp_path):
@@ -88,7 +91,7 @@ def test_setup_logging():
 
 def test_process_symbol_with_mocked_logger():
     """Ensure process_symbol runs with valid klines and mocked logger."""
-    mock_klines = [[str(i), "", "", "", "", "2"] for i in range(5040)]
+    mock_klines = [[str(i), "", "", "", "", "2"] for i in range(5280)]
     with patch("core.fetch_recent_klines", return_value=mock_klines):
         result = core.process_symbol("BTCUSDT", MagicMock())
         assert isinstance(result, dict)
@@ -118,7 +121,7 @@ def test_calculate_price_correlation_perfect():
 
 def test_process_symbol_correlation_with_mocked_logger():
     """Ensure correlation processing returns expected keys."""
-    mock_klines = [[str(i), "", "", "", str(i), "2"] for i in range(5040)]
+    mock_klines = [[str(i), "", "", "", str(i), "2"] for i in range(5280)]
     with patch("core.fetch_recent_klines", return_value=mock_klines), \
          patch("core.get_open_interest_change", return_value=5.0):
         result = core.process_symbol_correlation("ETHUSDT", mock_klines, MagicMock())
@@ -347,7 +350,7 @@ def test_calculate_price_range_percent():
 
 def test_process_symbol_volatility_with_mocked_logger():
     """Ensure volatility metrics include expected keys."""
-    mock_klines = [[str(i), "1", "10", "8", "", "1"] for i in range(5040)]
+    mock_klines = [[str(i), "1", "10", "8", "", "1"] for i in range(5280)]
     with patch("core.fetch_recent_klines", return_value=mock_klines):
         result = core.process_symbol_volatility("BTCUSDT", MagicMock())
         expected = {
@@ -378,7 +381,7 @@ def test_calculate_price_change_percent():
 
 def test_process_symbol_price_change_with_mocked_logger():
     """Ensure price change metrics include expected keys."""
-    mock_klines = [[str(i), "", "", "", str(i), "1"] for i in range(5040)]
+    mock_klines = [[str(i), "", "", "", str(i), "1"] for i in range(5280)]
     with patch("core.fetch_recent_klines", return_value=mock_klines):
         result = core.process_symbol_price_change("BTCUSDT", MagicMock())
         expected_keys = {
