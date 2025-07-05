@@ -373,6 +373,18 @@ def test_process_symbol_price_change_with_mocked_logger():
         assert set(result.keys()) == expected_keys
 
 
+def test_run_price_change_scan_independent():
+    """Price change scan works without any volatility data."""
+    mock_klines = [[str(i), "", "", "", str(i), "1"] for i in range(10080)]
+    all_syms = [("BTCUSDT", 1), ("ETHUSDT", 2)]
+    logger = MagicMock()
+    with patch("core.fetch_recent_klines", return_value=mock_klines), \
+         patch("scan.export_to_html") as mock_export:
+        df = scan.run_price_change_scan(all_syms, logger)
+        assert set(df["Symbol"]) == {"BTCUSDT", "ETHUSDT"}
+        mock_export.assert_called_once()
+
+
 def test_percentile_rank_basic():
     """Percentile rank computes relative position of a value."""
     values = [1.0, 2.0, 3.0, 4.0]

@@ -473,6 +473,10 @@ def run_correlation_matrix_scan(
 def run_price_change_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd.DataFrame:
     """Compute close price change for each symbol."""
     logger.info("Starting price change scan...")
+    # This scan only relies on price data and remains fully functional even
+    # when other scans such as the old volatility scan are disabled. It
+    # fetches klines for each symbol independently and does not use any
+    # results from other metrics.
     if not all_symbols:
         logger.warning("No symbols retrieved. Skipping price change export.")
         return pd.DataFrame()
@@ -487,6 +491,7 @@ def run_price_change_scan(all_symbols: list[tuple], logger: logging.Logger) -> p
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
 
     df = pd.DataFrame(rows)
+    logger.info("Price change data collected for %d symbols", len(df))
     for col in [
         "5M Percentile",
         "15M Percentile",
