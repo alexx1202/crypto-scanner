@@ -683,51 +683,52 @@ def export_correlation_matrix_html(
 
         table = [f"<table id='table-{label}'>", "".join(rows), "</table>"]
         return "".join(table)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(
-        "<html><head><meta charset='utf-8'>"
-        f"<meta http-equiv='refresh' content='{refresh_seconds}'>"
-        "<style>"
-        "body{background:#121212;color:#fff;font-family:Arial,Helvetica,sans-serif;}"
-        "table{background:#1e1e1e;color:#fff;border-collapse:collapse;width:100%;}"
-        "th,td{border:1px solid #333;padding:4px;text-align:right;}"
-        "th{background:#333;}"
-        "td:first-child,th:first-child{text-align:left;}"
-        "button{background:#333;color:#fff;border:1px solid #555;padding:4px 8px;"
-        "margin-right:4px;cursor:pointer;}"
-        "button:hover{background:#444;}"
-        ".pos{background:#C6EFCE;color:#006100;}"
-        ".neg{background:#FFC7CE;color:#9C0006;}"
-        "</style>"
-        "<title>Correlation Matrix</title></head><body>"
-        )
+    html_parts = [
+        "<html><head><meta charset='utf-8'>",
+        f"<meta http-equiv='refresh' content='{refresh_seconds}'>",
+        "<style>",
+        "body{background:#121212;color:#fff;font-family:Arial,Helvetica,sans-serif;}",
+        "table{background:#1e1e1e;color:#fff;border-collapse:collapse;width:100%;}",
+        "th,td{border:1px solid #333;padding:4px;text-align:right;}",
+        "th{background:#333;}",
+        "td:first-child,th:first-child{text-align:left;}",
+        "button{background:#333;color:#fff;border:1px solid #555;padding:4px 8px;",
+        "margin-right:4px;cursor:pointer;}",
+        "button:hover{background:#444;}",
+        ".pos{background:#C6EFCE;color:#006100;}",
+        ".neg{background:#FFC7CE;color:#9C0006;}",
+        "</style>",
+        "<title>Correlation Matrix</title></head><body>",
+    ]
 
     buttons = "".join(
         f"<button onclick=\"showMatrix('{label}')\">{label}</button>"
         for label in matrices
     )
-    f.write(f"<div>{buttons}</div>")
+    html_parts.append(f"<div>{buttons}</div>")
 
     first = True
     for label, df in matrices.items():
         html_table = matrix_to_html(df, label)
         display = "" if first else " style='display:none'"
-        f.write(f"<div id='div-{label}'{display}>{html_table}</div>")
+        html_parts.append(f"<div id='div-{label}'{display}>{html_table}</div>")
         first = False
 
-    f.write(
-        "<script>"
-        "function showMatrix(label){"
-        "  document.querySelectorAll('[id^=div-]').forEach(d=>d.style.display='none');"
-        "  document.getElementById('div-'+label).style.display='block';"
-        "}"
-        "</script>"
-    )
-    f.write("</body></html>")
+    html_parts.extend([
+        "<script>",
+        "function showMatrix(label){",
+        "  document.querySelectorAll('[id^=div-]').forEach(d=>d.style.display='none');",
+        "  document.getElementById('div-'+label).style.display='block';",
+        "}",
+        "</script>",
+        "</body></html>",
+    ])
+
+    html_content = "".join(html_parts)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(html_content)
 
     open_in_edge(os.path.abspath(path), logger)
-
-
 def export_all_data_html(
     volume_df: pd.DataFrame,
     funding_df: pd.DataFrame,
