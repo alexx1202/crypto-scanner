@@ -664,8 +664,8 @@ def export_correlation_matrix_html(
     def matrix_to_html(df: pd.DataFrame, label: str) -> str:
         """Return a plain HTML table for ``df`` with CSS classes for colours."""
 
-        headers = ["<th></th>"] + [f"<th>{c}</th>" for c in df.columns]
-        rows = ["<tr>" + "".join(headers) + "</tr>"]
+        headers = ["<th id='corner'></th>"] + [f"<th>{c}</th>" for c in df.columns]
+        rows = ["<thead><tr>" + "".join(headers) + "</tr></thead><tbody>"]
 
         for idx, row in df.iterrows():
             cells = [f"<th>{idx}</th>"]
@@ -681,17 +681,26 @@ def export_correlation_matrix_html(
                 cells.append(f"<td class='{cls}'>{text}</td>")
             rows.append("<tr>" + "".join(cells) + "</tr>")
 
-        table = [f"<table id='table-{label}'>", "".join(rows), "</table>"]
+        rows.append("</tbody>")
+        table = [
+            "<div class='table-wrapper'>",
+            f"<table id='table-{label}'>",
+            "".join(rows),
+            "</table></div>",
+        ]
         return "".join(table)
     html_parts = [
         "<html><head><meta charset='utf-8'>",
         f"<meta http-equiv='refresh' content='{refresh_seconds}'>",
         "<style>",
         "body{background:#121212;color:#fff;font-family:Arial,Helvetica,sans-serif;}",
-        "table{background:#1e1e1e;color:#fff;border-collapse:collapse;width:100%;}",
+        "table{background:#1e1e1e;color:#fff;border-collapse:collapse;width:max-content;}",
+        ".table-wrapper{max-height:90vh;overflow:auto;}",
         "th,td{border:1px solid #333;padding:4px;text-align:right;}",
-        "th{background:#333;}",
-        "td:first-child,th:first-child{text-align:left;}",
+        "thead th{background:#333;position:sticky;top:0;z-index:2;}",
+        "tbody th{background:#333;left:0;position:sticky;z-index:1;text-align:left;}",
+        "td:first-child{left:0;position:sticky;background:#1e1e1e;z-index:1;text-align:left;}",
+        "#corner{z-index:3;}",
         "button{background:#333;color:#fff;border:1px solid #555;padding:4px 8px;",
         "margin-right:4px;cursor:pointer;}",
         "button:hover{background:#444;}",
