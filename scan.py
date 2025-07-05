@@ -8,6 +8,8 @@ import importlib
 import subprocess
 import webbrowser
 
+from typing import Callable
+
 import pandas as pd
 from tqdm import tqdm
 
@@ -15,13 +17,6 @@ import core
 import correlation_math
 from scan_utils import wait_for_file_close
 
-NAV_LINKS = {
-    "Volume": "volume.html",
-    "Funding Rates": "funding_rates.html",
-    "Open Interest": "open_interest.html",
-    "Correlation": "correlation.html",
-    "Price Change": "price_change.html",
-}
 
 def get_toast_notifier():
     """Return the ``ToastNotifier`` class if ``win10toast`` is available."""
@@ -225,14 +220,16 @@ def open_in_edge(file_path: str, logger: logging.Logger) -> None:
         webbrowser.open(file_path)
 
 
-# pylint: disable=too-many-arguments,too-many-positional-arguments
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
 def export_to_html(
     df: pd.DataFrame,
     symbol_order: list,
     logger: logging.Logger,
     filename: str,
     header: str,
-    nav_links: dict[str, str],
+    *,
+    include_sort_buttons: bool = False,
+    refresh_seconds: int = 60,
 ) -> None:
     """Write ``df`` to ``filename`` with a dark theme and auto-refresh."""
     df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
@@ -241,22 +238,49 @@ def export_to_html(
     os.makedirs("html", exist_ok=True)
     path = os.path.join("html", filename)
     logger.info("Exporting data to HTML: %s", path)
-    html_table = df.to_html(index=False, table_id="data-table")
-    nav = "<div>" + "".join(
-        f"<button onclick=\"location.href='{link}'\">{text}</button>"
-        for text, link in nav_links.items()
-    )
-    timeframes = ["5M", "15M", "30M", "1H", "4H", "1D", "1W", "1M"]
-    sort_buttons = "".join(
-        f"<button onclick=\"sortBy('{tf}')\">{tf}</button>"
-        for tf in timeframes
-        if tf in df.columns
-    )
-    nav += sort_buttons + "</div>"
+
+    def style_cell(val: float) -> str:
+        try:
+            num = float(val)
+        except (TypeError, ValueError):
+            return ""
+        return (
+            "background-color:#C6EFCE;color:#006100"
+            if num >= 0
+            else "background-color:#FFC7CE;color:#9C0006"
+        )
+
+    numeric_cols = df.select_dtypes("number").columns
+    styled = df.style.applymap(style_cell, subset=numeric_cols)
+
+    format_dict: dict[str, Callable] = {}
+    if "24h USD Volume" in numeric_cols:
+        format_dict["24h USD Volume"] = lambda x: f"{x:,.0f}"
+    for col in numeric_cols:
+        if col == "Funding Rate":
+            format_dict[col] = lambda x: f"{x:.7f}%"
+        elif "Percentile" in col:
+            format_dict[col] = lambda x: f"{x * 100:.2f}%"
+        elif col != "24h USD Volume":
+            format_dict[col] = lambda x: f"{x:.2f}%"
+
+    styled = styled.format(format_dict)
+    html_table = styled.to_html(index=False, table_id="data-table")
+
+    nav = ""
+    if include_sort_buttons:
+        timeframes = ["5M", "15M", "30M", "1H", "4H", "1D", "1W", "1M"]
+        sort_buttons = "".join(
+            f"<button onclick=\"sortBy('{tf}')\">{tf}</button>"
+            for tf in timeframes
+            if tf in df.columns
+        )
+        nav = f"<div>{sort_buttons}</div>"
+
     with open(path, "w", encoding="utf-8") as f:
         f.write(
             "<html><head><meta charset='utf-8'>"
-            "<meta http-equiv='refresh' content='60'>"
+            f"<meta http-equiv='refresh' content='{refresh_seconds}'>"
             "<style>"
             "body{background:#121212;color:#fff;font-family:Arial,Helvetica,sans-serif;}"
             "table{background:#1e1e1e;color:#fff;border-collapse:collapse;width:100%;}"
@@ -269,31 +293,33 @@ def export_to_html(
             "</style>"
             f"<title>{header}</title></head><body>"
         )
-        f.write(nav)
+        if nav:
+            f.write(nav)
         f.write(f"<h1 style='margin-top:8px'>{header}</h1>")
         f.write(html_table)
-        f.write(
-            "<script>"
-            "const sortDirections = {};"
-            "function sortBy(col){"
-            "  const table=document.getElementById('data-table');"
-            "  const headers=Array.from(table.rows[0].cells).map(c=>c.textContent.trim());"
-            "  const idx=headers.indexOf(col);"
-            "  if(idx===-1)return;"
-            "  const dir=sortDirections[col]||'desc';"
-            "  const rows=Array.from(table.tBodies[0].rows);"
-            "  rows.sort((a,b)=>{"
-            "    const aVal=parseFloat(a.cells[idx].textContent"
-            ".replace(/[%,$]/g,'').replace(/,/g,''))||0;"
-            "    const bVal=parseFloat(b.cells[idx].textContent"
-            ".replace(/[%,$]/g,'').replace(/,/g,''))||0;"
-            "    return dir==='desc'?bVal-aVal:aVal-bVal;"
-            "  });"
-            "  rows.forEach(r=>table.tBodies[0].appendChild(r));"
-            "  sortDirections[col]=dir==='desc'?'asc':'desc';"
-            "}"
-            "</script>"
-        )
+        if include_sort_buttons:
+            f.write(
+                "<script>"
+                "const sortDirections = {};"
+                "function sortBy(col){"
+                "  const table=document.getElementById('data-table');"
+                "  const headers=Array.from(table.rows[0].cells).map(c=>c.textContent.trim());"
+                "  const idx=headers.indexOf(col);"
+                "  if(idx===-1)return;"
+                "  const dir=sortDirections[col]||'desc';"
+                "  const rows=Array.from(table.tBodies[0].rows);"
+                "  rows.sort((a,b)=>{"
+                "    const aVal=parseFloat(a.cells[idx].textContent.replace(/[%,$]/g,'')"
+                ".replace(/,/g,''))||0;"
+                "    const bVal=parseFloat(b.cells[idx].textContent.replace(/[%,$]/g,'')"
+                ".replace(/,/g,''))||0;"
+                "    return dir==='desc'?bVal-aVal:aVal-bVal;"
+                "  });"
+                "  rows.forEach(r=>table.tBodies[0].appendChild(r));"
+                "  sortDirections[col]=dir==='desc'?'asc':'desc';"
+                "}"
+                "</script>"
+            )
         f.write("</body></html>")
     open_in_edge(os.path.abspath(path), logger)
 
@@ -349,7 +375,7 @@ def run_scan(
         logger,
         filename="volume.html",
         header="% Distance Below or Above 20 Bar Moving Average Volume Indicator",
-        nav_links=NAV_LINKS,
+        refresh_seconds=540,
     )
 
     logger.info("Scanning funding rates...")
@@ -365,7 +391,7 @@ def run_scan(
         logger,
         filename="funding_rates.html",
         header="Latest Funding Rates",
-        nav_links=NAV_LINKS,
+        refresh_seconds=60,
     )
 
     logger.info("Scanning open interest changes...")
@@ -381,7 +407,7 @@ def run_scan(
         logger,
         filename="open_interest.html",
         header="% Change in Open Interest",
-        nav_links=NAV_LINKS,
+        refresh_seconds=60,
     )
 
     if failed:
@@ -394,51 +420,6 @@ def run_scan(
         [s for s, _ in all_symbols],
     )
 
-
-def run_correlation_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd.DataFrame:
-    """Compute correlation of each symbol to BTCUSDT."""
-    logger.info("Starting correlation scan...")
-
-    if not all_symbols:
-        logger.warning("No symbols retrieved. Skipping correlation export.")
-        return pd.DataFrame()
-
-    btc_klines = core.fetch_recent_klines("BTCUSDT")
-    rows: list[dict] = []
-    failed: list[str] = []
-    with ThreadPoolExecutor(max_workers=16) as executor:
-        futures = {
-            executor.submit(
-                core.process_symbol_correlation, symbol, btc_klines, logger
-            ): symbol
-            for symbol, _ in all_symbols
-        }
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Correlation"):
-            symbol = futures[future]
-            result = future.result()
-            if result:
-                rows.append(result)
-            else:
-                failed.append(symbol)
-
-    if failed:
-        logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
-
-    df = pd.DataFrame(rows)
-    for col in ["5M", "15M", "30M", "1H", "4H"]:
-        if col in df.columns:
-            df[col] = df[col] * 100
-
-    export_to_html(
-        df,
-        [s for s, _ in all_symbols],
-        logger,
-        filename="correlation.html",
-        header="% Correlation of Each Symbol to BTC",
-        nav_links=NAV_LINKS,
-    )
-
-    return df
 
 
 def run_correlation_matrix_scan(
@@ -508,7 +489,7 @@ def run_price_change_scan(all_symbols: list[tuple], logger: logging.Logger) -> p
         logger,
         filename="price_change.html",
         header="% Price Change",
-        nav_links=NAV_LINKS,
+        refresh_seconds=1260,
     )
 
     return df
@@ -518,7 +499,6 @@ def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-a
     volume_df: pd.DataFrame,
     funding_df: pd.DataFrame,
     oi_df: pd.DataFrame,
-    corr_df: pd.DataFrame,
     price_df: pd.DataFrame,
     symbol_order: list[str],
     logger: logging.Logger,
@@ -553,14 +533,6 @@ def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-a
             sheet_name="Open Interest",
         )
         export_to_excel(
-            corr_df,
-            symbol_order,
-            logger,
-            header="% Correlation of Each Symbol to BTC",
-            writer=writer,
-            sheet_name="Correlation",
-        )
-        export_to_excel(
             price_df,
             symbol_order,
             logger,
@@ -585,6 +557,14 @@ def export_correlation_matrices(
     wait_for_file_close(filename, logger)
     with pd.ExcelWriter(filename, engine="xlsxwriter") as writer:
         percent_format = writer.book.add_format({"num_format": '0.00"%"'})
+        red_format = writer.book.add_format({
+            "bg_color": "#FFC7CE",
+            "font_color": "#9C0006",
+        })
+        green_format = writer.book.add_format({
+            "bg_color": "#C6EFCE",
+            "font_color": "#006100",
+        })
         for sheet, df in matrices.items():
             if df.empty:
                 continue
@@ -593,27 +573,111 @@ def export_correlation_matrices(
             worksheet.freeze_panes(1, 1)
             for idx in range(1, len(df.columns) + 1):
                 worksheet.set_column(idx, idx, None, percent_format)
+                col_letter = chr(ord("A") + idx)
+                cell_range = f"{col_letter}2:{col_letter}1048576"
+                worksheet.conditional_format(cell_range, {
+                    "type": "cell",
+                    "criteria": ">",
+                    "value": 0,
+                    "format": green_format,
+                })
+                worksheet.conditional_format(cell_range, {
+                    "type": "cell",
+                    "criteria": "<",
+                    "value": 0,
+                    "format": red_format,
+                })
     logger.info("Export complete: %s", filename)
+
+
+def export_correlation_matrix_html(
+    matrices: dict[str, pd.DataFrame],
+    logger: logging.Logger,
+    filename: str = "correlation_matrix.html",
+    *,
+    refresh_seconds: int = 60,
+) -> None:
+    """Write correlation matrices to a single HTML file with timeframe buttons."""
+
+    if not matrices:
+        logger.warning("No correlation matrix data to export.")
+        return
+
+    os.makedirs("html", exist_ok=True)
+    path = os.path.join("html", filename)
+    logger.info("Exporting data to HTML: %s", path)
+
+    def style_cell(val: float) -> str:
+        try:
+            num = float(val)
+        except (TypeError, ValueError):
+            return ""
+        return (
+            "background-color:#C6EFCE;color:#006100"
+            if num >= 0
+            else "background-color:#FFC7CE;color:#9C0006"
+        )
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(
+            "<html><head><meta charset='utf-8'>"
+            f"<meta http-equiv='refresh' content='{refresh_seconds}'>"
+            "<style>"
+            "body{background:#121212;color:#fff;font-family:Arial,Helvetica,sans-serif;}"
+            "table{background:#1e1e1e;color:#fff;border-collapse:collapse;width:100%;}"
+            "th,td{border:1px solid #333;padding:4px;text-align:right;}"
+            "th{background:#333;}"
+            "td:first-child,th:first-child{text-align:left;}"
+            "button{background:#333;color:#fff;border:1px solid #555;padding:4px 8px;"
+            "margin-right:4px;cursor:pointer;}"
+            "button:hover{background:#444;}"
+            "</style>"
+            "<title>Correlation Matrix</title></head><body>"
+        )
+
+        buttons = "".join(
+            f"<button onclick=\"showMatrix('{label}')\">{label}</button>"
+            for label in matrices
+        )
+        f.write(f"<div>{buttons}</div>")
+
+        first = True
+        for label, df in matrices.items():
+            styled = df.style.applymap(style_cell).format("{:.2f}%")
+            html_table = styled.to_html(table_id=f"table-{label}")
+            display = "" if first else " style='display:none'"
+            f.write(f"<div id='div-{label}'{display}>{html_table}</div>")
+            first = False
+
+        f.write(
+            "<script>"
+            "function showMatrix(label){"
+            "  document.querySelectorAll('[id^=div-]').forEach(d=>d.style.display='none');"
+            "  document.getElementById('div-'+label).style.display='block';"
+            "}"
+            "</script>"
+        )
+        f.write("</body></html>")
+
+    open_in_edge(os.path.abspath(path), logger)
 
 
 def export_all_data_html(
     volume_df: pd.DataFrame,
     funding_df: pd.DataFrame,
     oi_df: pd.DataFrame,
-    corr_df: pd.DataFrame,
     price_df: pd.DataFrame,
     symbol_order: list[str],
     logger: logging.Logger,
 ) -> None:
     """Write all metric DataFrames to individual HTML files."""  # pylint: disable=too-many-arguments,too-many-positional-arguments
-    links = NAV_LINKS
     export_to_html(
         volume_df,
         symbol_order,
         logger,
         filename="volume.html",
         header="% Distance Below or Above 20 Bar Moving Average Volume Indicator",
-        nav_links=links,
+        refresh_seconds=540,
     )
     export_to_html(
         funding_df,
@@ -621,7 +685,7 @@ def export_all_data_html(
         logger,
         filename="funding_rates.html",
         header="Latest Funding Rates",
-        nav_links=links,
+        refresh_seconds=60,
     )
     export_to_html(
         oi_df,
@@ -629,15 +693,7 @@ def export_all_data_html(
         logger,
         filename="open_interest.html",
         header="% Change in Open Interest",
-        nav_links=links,
-    )
-    export_to_html(
-        corr_df,
-        symbol_order,
-        logger,
-        filename="correlation.html",
-        header="% Correlation of Each Symbol to BTC",
-        nav_links=links,
+        refresh_seconds=60,
     )
     export_to_html(
         price_df,
@@ -645,7 +701,7 @@ def export_all_data_html(
         logger,
         filename="price_change.html",
         header="% Price Change",
-        nav_links=links,
+        refresh_seconds=1260,
     )
 
 
@@ -664,7 +720,6 @@ def main() -> None:
         clean_existing_excels(logger)
 
         volume_df, funding_df, oi_df, symbol_order = run_scan(all_symbols, logger)
-        corr_df = run_correlation_scan(all_symbols, logger)
         matrix_map = run_correlation_matrix_scan(all_symbols, logger)
         price_df = run_price_change_scan(all_symbols, logger)
 
@@ -672,12 +727,12 @@ def main() -> None:
             volume_df,
             funding_df,
             oi_df,
-            corr_df,
             price_df,
             symbol_order,
             logger,
         )
         export_correlation_matrices(matrix_map, logger)
+        export_correlation_matrix_html(matrix_map, logger, refresh_seconds=180)
         send_push_notification(
             "Scan complete",
             "Scan.xlsx and Correlation_Matrix.xlsx have been exported.",
