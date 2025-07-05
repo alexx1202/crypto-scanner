@@ -75,10 +75,10 @@ def run_periodic_scans() -> None:
                 all_symbols = core.get_tradeable_symbols_sorted_by_volume()
                 matrix_map = scan.run_correlation_matrix_scan(all_symbols, logger)
                 scan.export_correlation_matrices(matrix_map, logger)
-                scan.export_correlation_matrix_html(
-                    matrix_map,
+                scan.send_push_notification(
+                    "Correlation matrix complete",
+                    "Correlation_Matrix.xlsx has been exported.",
                     logger,
-                    refresh_seconds=intervals["corr"],
                 )
                 next_run["corr"] = now + intervals["corr"]
 

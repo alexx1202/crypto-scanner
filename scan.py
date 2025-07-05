@@ -845,19 +845,19 @@ def main() -> None:
         matrix_map = run_correlation_matrix_scan(all_symbols, logger, klines_cache)
         price_df = run_price_change_scan(all_symbols, logger, klines_cache)
 
+        export_correlation_matrices(matrix_map, logger)
+        send_push_notification(
+            "Correlation matrix complete",
+            "Correlation_Matrix.xlsx has been exported.",
+            logger,
+        )
+
         export_all_data(
             volume_df,
             funding_df,
             oi_df,
             price_df,
             symbol_order,
-            logger,
-        )
-        export_correlation_matrices(matrix_map, logger)
-        export_correlation_matrix_html(matrix_map, logger, refresh_seconds=180)
-        send_push_notification(
-            "Scan complete",
-            "Scan.xlsx and Correlation_Matrix.xlsx have been exported.",
             logger,
         )
     except (RuntimeError, ValueError, TypeError) as exc:
