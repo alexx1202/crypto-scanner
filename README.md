@@ -40,8 +40,8 @@ python scan.py
 
 HTML versions of each table are written to the `html` folder in the project
 root. If the scanner is run on Windows, these pages are opened in Microsoft
-Edge automatically. The pages include a built-in refresh that updates them when
-new scans overwrite the files.
+Edge automatically. Each page opens only once per session and includes a
+built-in refresh that updates it when new scans overwrite the file.
 Each page now uses a dark theme and includes buttons in the top-left corner for
 quickly switching between the different tables. All buttons sit in a single
 horizontal row aligned to the far left. They let you sort by any timeframe

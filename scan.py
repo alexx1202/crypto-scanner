@@ -210,8 +210,17 @@ def export_to_excel(
         writer.close()
 
 
+_OPENED_PATHS: set[str] = set()
+
+
 def open_in_edge(file_path: str, logger: logging.Logger) -> None:
-    """Open ``file_path`` in Microsoft Edge if available."""
+    """Open ``file_path`` in Microsoft Edge only once per session."""
+    if file_path in _OPENED_PATHS:
+        logger.info("Edge already open for %s", file_path)
+        return
+
+    _OPENED_PATHS.add(file_path)
+
     if platform.system() == "Windows":
         try:
             subprocess.Popen(  # pylint: disable=consider-using-with
