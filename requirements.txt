@@ -1,5 +1,6 @@
 pandas
 requests
+httpx
 tqdm
 xlsxwriter
 pytest
