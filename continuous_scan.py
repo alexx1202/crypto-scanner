@@ -29,7 +29,7 @@ def run_periodic_scans() -> None:
     funding_df = pd.DataFrame()
     oi_df = pd.DataFrame()
     price_df = pd.DataFrame()
-    matrix_map: dict[str, pd.DataFrame] = {}
+    corr_df: pd.DataFrame = pd.DataFrame()
     symbol_order: list[str] = []
 
     while True:
@@ -86,6 +86,29 @@ def run_periodic_scans() -> None:
                             f"{filename} has been exported.",
                             logger,
                         )
+                    if now >= next_run["volume"]:
+                        next_run["volume"] = now + intervals["volume"]
+                    if now >= next_run["funding"]:
+                        next_run["funding"] = now + intervals["funding"]
+                    if now >= next_run["oi"]:
+                        next_run["oi"] = now + intervals["oi"]
+
+            if now >= next_run["corr"]:
+                logger.info("Updating correlation matrix")
+                all_symbols = core.get_tradeable_symbols_sorted_by_volume()
+                corr_df = scan.run_correlation_matrix_scan(all_symbols, logger)
+                scan.export_correlation_matrices(corr_df, logger)
+                scan.export_correlation_matrix_html(
+                    corr_df,
+                    logger,
+                    refresh_seconds=intervals["corr"],
+                )
+                scan.send_push_notification(
+                    "Correlation scan complete",
+                    "Correlation.xlsx has been exported.",
+                    logger,
+                )
+                next_run["corr"] = now + intervals["corr"]
 
             if now >= next_run["price"]:
                 logger.info("Updating price change data")
