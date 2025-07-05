@@ -97,11 +97,8 @@ def run_periodic_scans() -> None:
                 logger.info("Updating correlation matrix")
                 all_symbols = core.get_tradeable_symbols_sorted_by_volume()
                 corr_df = scan.run_correlation_matrix_scan(all_symbols, logger)
-                scan.export_correlation_matrices(corr_df, logger)
-                scan.export_correlation_matrix_html(
-                    corr_df,
-                    logger,
-                    refresh_seconds=intervals["corr"],
+                scan.export_correlation_matrices(
+                    corr_df, logger
                 )
                 scan.send_push_notification(
                     "Correlation scan complete",

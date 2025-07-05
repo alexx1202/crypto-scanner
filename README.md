@@ -7,6 +7,7 @@ Results are written to multiple spreadsheets:
 * ``Funding_Rates.xlsx`` with the latest funding rate for each pair
 * ``Open_Interest.xlsx`` showing percent changes in open interest across several timeframes, now including 1 day, 1 week and 1 month intervals
 * ``Price_Change.xlsx`` listing the percentage price change over common intraday periods
+* ``Correlation.xlsx`` summarising how closely each pair moves with BTCUSDT
 
 The funding and open interest sheets omit the ``24h USD Volume`` column, but rows remain sorted using this metric.
 
@@ -42,6 +43,7 @@ HTML versions of each table are written to the `html` folder in the project
 root. If the scanner is run on Windows, these pages are opened in Microsoft
 Edge automatically. Each page opens only once per session and includes a
 built-in refresh that updates it when new scans overwrite the file.
+The correlation table launches in Edge as soon as its Excel file is written.
 Each page now uses a dark theme and includes buttons in the top-left corner for
 quickly switching between the different tables. All buttons sit in a single
 horizontal row aligned to the far left. They let you sort by any timeframe

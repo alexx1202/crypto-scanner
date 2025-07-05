@@ -631,6 +631,7 @@ def export_correlation_matrices(
         header="% Correlation to BTCUSDT",
         sheet_name="Correlation",
     )
+    export_correlation_matrix_html(df, logger)
 
 
 def export_correlation_matrix_html(
@@ -725,7 +726,6 @@ def main() -> None:
         price_df = run_price_change_scan(all_symbols, logger, klines_cache)
 
         export_correlation_matrices(corr_df, logger)
-        export_correlation_matrix_html(corr_df, logger)
         send_push_notification(
             "Correlation scan complete",
             "Correlation.xlsx has been exported.",
