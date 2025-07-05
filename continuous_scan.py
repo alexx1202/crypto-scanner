@@ -8,7 +8,7 @@ import scan
 import core
 
 
-def run_periodic_scans() -> None:
+def run_periodic_scans() -> None:  # pylint: disable=too-many-branches,too-many-statements
     """Refresh each metric at its own interval."""
     logger = scan.setup_logging()
     logger.info("Continuous scan started. Press Ctrl+C to stop.")
@@ -21,14 +21,12 @@ def run_periodic_scans() -> None:
         "oi": 60,
         "corr": 3 * 60,
         "volume": 9 * 60,
-        "price": 21 * 60,
     }
     next_run = {key: 0 for key in intervals}
 
     volume_df = pd.DataFrame()
     funding_df = pd.DataFrame()
     oi_df = pd.DataFrame()
-    price_df = pd.DataFrame()
     corr_df: pd.DataFrame = pd.DataFrame()
     symbol_order: list[str] = []
 
@@ -70,13 +68,10 @@ def run_periodic_scans() -> None:
                     if now >= next_run["volume"]:
                         volume_df = scan.run_volume_scan(all_symbols, logger)
                         next_run["volume"] = now + intervals["volume"]
-
-                    if not price_df.empty:
                         scan.export_all_data(
                             volume_df,
                             funding_df,
                             oi_df,
-                            price_df,
                             symbol_order,
                             logger,
                             filename=filename,
@@ -107,20 +102,6 @@ def run_periodic_scans() -> None:
                 )
                 next_run["corr"] = now + intervals["corr"]
 
-            if now >= next_run["price"]:
-                logger.info("Updating price change data")
-                all_symbols = core.get_tradeable_symbols_sorted_by_volume()
-                price_df = scan.run_price_change_scan(all_symbols, logger)
-                scan.export_all_data(
-                    volume_df,
-                    funding_df,
-                    oi_df,
-                    price_df,
-                    symbol_order,
-                    logger,
-                    filename=filename,
-                )
-                next_run["price"] = now + intervals["price"]
 
         except (RuntimeError, ValueError, TypeError) as exc:
             logger.exception("Script failed: %s", exc)
