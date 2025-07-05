@@ -101,8 +101,11 @@ def export_to_excel(
 ) -> None:
     # pylint: disable=too-many-locals,too-many-arguments
     """Write ``df`` to ``filename`` with formatting."""
-    df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
-    df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
+    if "Symbol" in df.columns and not df.empty:
+        df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
+        df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
+    elif "Symbol" not in df.columns:
+        logger.warning("'Symbol' column missing. Skipping sorting for sheet '%s'", sheet_name)
 
     if "Funding Rate" in df.columns and "24h USD Volume" in df.columns:
         cols = df.columns.tolist()
@@ -232,8 +235,11 @@ def export_to_html(
     refresh_seconds: int = 60,
 ) -> None:
     """Write ``df`` to ``filename`` with a dark theme and auto-refresh."""
-    df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
-    df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
+    if "Symbol" in df.columns and not df.empty:
+        df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
+        df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
+    elif "Symbol" not in df.columns:
+        logger.warning("'Symbol' column missing. Skipping sorting for file '%s'", filename)
 
     os.makedirs("html", exist_ok=True)
     path = os.path.join("html", filename)
