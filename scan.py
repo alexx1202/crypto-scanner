@@ -282,7 +282,8 @@ def export_to_html(
             format_dict[col] = lambda x: f"{x:.2f}%"
 
     styled = styled.format(format_dict)
-    html_table = styled.to_html(index=False, table_id="data-table")
+    html_table = styled.to_html(index=False, table_uuid="data-table")
+    html_table = html_table.replace('id="T_data-table"', 'id="data-table"')
 
     nav = ""
     if include_sort_buttons:
