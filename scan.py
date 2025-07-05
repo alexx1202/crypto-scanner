@@ -377,27 +377,77 @@ def scan_and_collect_results(symbols: list[str],
     return rows, failed
 
 
-def run_scan(
+def run_funding_rate_scan(
+    all_symbols: list[tuple],
+    logger: logging.Logger,
+) -> pd.DataFrame:
+    """Collect the latest funding rate for each symbol."""
+
+    logger.info("Scanning funding rates...")
+    rows, _ = scan_and_collect_results(
+        [s for s, _ in all_symbols],
+        logger,
+        core.process_symbol_funding,
+    )
+    df = pd.DataFrame(rows)
+    export_to_html(
+        df,
+        [s for s, _ in all_symbols],
+        logger,
+        filename="funding_rates.html",
+        header="Latest Funding Rates",
+        refresh_seconds=60,
+        include_sort_buttons=True,
+    )
+    return df
+
+
+def run_open_interest_scan(
+    all_symbols: list[tuple],
+    logger: logging.Logger,
+) -> pd.DataFrame:
+    """Collect open interest change metrics for each symbol."""
+
+    logger.info("Scanning open interest changes...")
+    rows, _ = scan_and_collect_results(
+        [s for s, _ in all_symbols],
+        logger,
+        core.process_symbol_open_interest,
+    )
+    df = pd.DataFrame(rows)
+    export_to_html(
+        df,
+        [s for s, _ in all_symbols],
+        logger,
+        filename="open_interest.html",
+        header="% Change in Open Interest",
+        refresh_seconds=60,
+        include_sort_buttons=True,
+    )
+    return df
+
+
+def run_volume_scan(
     all_symbols: list[tuple],
     logger: logging.Logger,
     klines_cache: dict | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
-    """Fetch volume, funding and open interest metrics."""
+) -> pd.DataFrame:
+    """Collect volume metrics for each symbol."""
 
     logger.info("Scanning volume metrics...")
 
-    volume_rows, failed = scan_and_collect_results(
+    rows, failed = scan_and_collect_results(
         [s for s, _ in all_symbols],
         logger,
         lambda s, log: core.process_symbol(s, log, klines_cache),
     )
 
     volume_map = dict(all_symbols)
-    for row in volume_rows:
+    for row in rows:
         row["24h USD Volume"] = volume_map.get(row["Symbol"], 0)
-    volume_df = pd.DataFrame(volume_rows)
+    df = pd.DataFrame(rows)
     export_to_html(
-        volume_df,
+        df,
         [s for s, _ in all_symbols],
         logger,
         filename="volume.html",
@@ -406,42 +456,22 @@ def run_scan(
         include_sort_buttons=True,
     )
 
-    logger.info("Scanning funding rates...")
-    funding_rows, _ = scan_and_collect_results(
-        [s for s, _ in all_symbols],
-        logger,
-        core.process_symbol_funding,
-    )
-    funding_df = pd.DataFrame(funding_rows)
-    export_to_html(
-        funding_df,
-        [s for s, _ in all_symbols],
-        logger,
-        filename="funding_rates.html",
-        header="Latest Funding Rates",
-        refresh_seconds=60,
-        include_sort_buttons=True,
-    )
-
-    logger.info("Scanning open interest changes...")
-    oi_rows, _ = scan_and_collect_results(
-        [s for s, _ in all_symbols],
-        logger,
-        core.process_symbol_open_interest,
-    )
-    oi_df = pd.DataFrame(oi_rows)
-    export_to_html(
-        oi_df,
-        [s for s, _ in all_symbols],
-        logger,
-        filename="open_interest.html",
-        header="% Change in Open Interest",
-        refresh_seconds=60,
-        include_sort_buttons=True,
-    )
-
     if failed:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
+
+    return df
+
+
+def run_scan(
+    all_symbols: list[tuple],
+    logger: logging.Logger,
+    klines_cache: dict | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
+    """Fetch funding, open interest and volume metrics in sequence."""
+
+    funding_df = run_funding_rate_scan(all_symbols, logger)
+    oi_df = run_open_interest_scan(all_symbols, logger)
+    volume_df = run_volume_scan(all_symbols, logger, klines_cache)
 
     return (
         volume_df,

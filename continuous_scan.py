@@ -17,10 +17,10 @@ def run_periodic_scans() -> None:
     filename = f"Scan_{timestamp}.xlsx"
 
     intervals = {
-        "volume": 9 * 60,
         "funding": 60,
         "oi": 60,
         "corr": 3 * 60,
+        "volume": 9 * 60,
         "price": 21 * 60,
     }
     next_run = {key: 0 for key in intervals}
@@ -36,9 +36,10 @@ def run_periodic_scans() -> None:
         now = time.time()
         try:
             if (
-                now >= next_run["volume"]
-                or now >= next_run["funding"]
+                now >= next_run["funding"]
                 or now >= next_run["oi"]
+                or now >= next_run["corr"]
+                or now >= next_run["volume"]
             ):
                 logger.info("Fetching USDT perpetual futures from Bybit...")
                 all_symbols = core.get_tradeable_symbols_sorted_by_volume()
@@ -47,7 +48,29 @@ def run_periodic_scans() -> None:
                 if not all_symbols:
                     logger.warning("No symbols retrieved. Skipping export.")
                 else:
-                    volume_df, funding_df, oi_df, symbol_order = scan.run_scan(all_symbols, logger)
+                    if now >= next_run["funding"]:
+                        funding_df = scan.run_funding_rate_scan(all_symbols, logger)
+                        symbol_order = [s for s, _ in all_symbols]
+                        next_run["funding"] = now + intervals["funding"]
+
+                    if now >= next_run["oi"]:
+                        oi_df = scan.run_open_interest_scan(all_symbols, logger)
+                        next_run["oi"] = now + intervals["oi"]
+
+                    if now >= next_run["corr"]:
+                        matrix_map = scan.run_correlation_matrix_scan(all_symbols, logger)
+                        scan.export_correlation_matrices(matrix_map, logger)
+                        scan.send_push_notification(
+                            "Correlation matrix complete",
+                            "Correlation_Matrix.xlsx has been exported.",
+                            logger,
+                        )
+                        next_run["corr"] = now + intervals["corr"]
+
+                    if now >= next_run["volume"]:
+                        volume_df = scan.run_volume_scan(all_symbols, logger)
+                        next_run["volume"] = now + intervals["volume"]
+
                     if not price_df.empty:
                         scan.export_all_data(
                             volume_df,
