@@ -37,3 +37,17 @@ def calculate_price_correlation(
         return float(pd.Series(s_ret).corr(pd.Series(b_ret)))
     except (IndexError, ValueError, TypeError):
         return 0.0
+
+
+def calculate_returns(klines: list, minutes: int) -> list[float]:
+    """Return minute returns for the latest ``minutes`` intervals."""
+    try:
+        sorted_klines = sorted(klines, key=lambda k: int(k[0]))
+        if len(sorted_klines) < minutes + 1:
+            return []
+        closes = [float(k[4]) for k in sorted_klines[-(minutes + 1):]]
+        return [
+            (closes[i + 1] - closes[i]) / closes[i] for i in range(minutes)
+        ]
+    except (IndexError, ValueError, TypeError):
+        return []

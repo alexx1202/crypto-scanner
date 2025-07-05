@@ -10,6 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 
 import core
+import correlation_math
 from scan_utils import wait_for_file_close
 
 
@@ -309,6 +310,40 @@ def run_correlation_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd
     return df
 
 
+def run_correlation_matrix_scan(
+    all_symbols: list[tuple], logger: logging.Logger
+) -> dict[str, pd.DataFrame]:
+    """Return correlation matrices for each timeframe."""
+    logger.info("Starting correlation matrix scan...")
+
+    if not all_symbols:
+        logger.warning("No symbols retrieved. Skipping correlation matrix export.")
+        return {}
+
+    minutes_map = {"5M": 5, "15M": 15, "30M": 30, "1H": 60, "4H": 240}
+    returns_data = {key: {} for key in minutes_map}
+
+    for symbol, _ in tqdm(all_symbols, desc="CorrMatrix"):
+        klines = core.fetch_recent_klines(symbol)
+        if not klines:
+            logger.warning(
+                "%s skipped: No valid klines returned for correlation matrix.",
+                symbol,
+            )
+            continue
+        for label, minutes in minutes_map.items():
+            ret = correlation_math.calculate_returns(klines, minutes)
+            if len(ret) == minutes:
+                returns_data[label][symbol] = ret
+
+    matrices: dict[str, pd.DataFrame] = {}
+    for label, data in returns_data.items():
+        df = pd.DataFrame(data)
+        matrices[label] = df.corr() * 100 if not df.empty else pd.DataFrame()
+
+    return matrices
+
+
 def run_volatility_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd.DataFrame:
     """Compute high-low price movement for each symbol."""
     logger.info("Starting volatility scan...")
@@ -425,6 +460,31 @@ def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-a
     logger.info("Export complete: %s", filename)
 
 
+def export_correlation_matrices(
+    matrices: dict[str, pd.DataFrame],
+    logger: logging.Logger,
+    filename: str = "Correlation_Matrix.xlsx",
+) -> None:
+    """Write correlation matrices to ``filename`` as separate sheets."""
+
+    if not matrices:
+        logger.warning("No correlation matrix data to export.")
+        return
+
+    wait_for_file_close(filename, logger)
+    with pd.ExcelWriter(filename, engine="xlsxwriter") as writer:
+        percent_format = writer.book.add_format({"num_format": '0.00"%"'})
+        for sheet, df in matrices.items():
+            if df.empty:
+                continue
+            df.to_excel(writer, sheet_name=sheet)
+            worksheet = writer.sheets[sheet]
+            worksheet.freeze_panes(1, 1)
+            for idx in range(1, len(df.columns) + 1):
+                worksheet.set_column(idx, idx, None, percent_format)
+    logger.info("Export complete: %s", filename)
+
+
 def main() -> None:
     """Entry point for running the scanner from the command line."""
     logger = setup_logging()
@@ -441,6 +501,7 @@ def main() -> None:
 
         volume_df, funding_df, oi_df, symbol_order = run_scan(all_symbols, logger)
         corr_df = run_correlation_scan(all_symbols, logger)
+        matrix_map = run_correlation_matrix_scan(all_symbols, logger)
         vol_df = run_volatility_scan(all_symbols, logger)
         price_df = run_price_change_scan(all_symbols, logger)
 
@@ -454,9 +515,10 @@ def main() -> None:
             symbol_order,
             logger,
         )
+        export_correlation_matrices(matrix_map, logger)
         send_push_notification(
             "Scan complete",
-            "Scan.xlsx has been exported.",
+            "Scan.xlsx and Correlation_Matrix.xlsx have been exported.",
             logger,
         )
     except (RuntimeError, ValueError, TypeError) as exc:
