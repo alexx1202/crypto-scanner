@@ -44,6 +44,16 @@ def run_periodic_scans(interval_minutes: int = 30) -> None:
                 logger,
                 filename=filename,
             )
+            scan.export_all_data_html(
+                volume_df,
+                funding_df,
+                oi_df,
+                corr_df,
+                vol_df,
+                price_df,
+                symbol_order,
+                logger,
+            )
             scan.send_push_notification(
                 "Scan complete",
                 f"{filename} has been exported.",

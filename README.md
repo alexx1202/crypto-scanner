@@ -38,6 +38,15 @@ market data and export `Crypto_Volume.xlsx`:
 python scan.py
 ```
 
+HTML versions of each table are written to the `html` folder in the project
+root. If the scanner is run on Windows, these pages are opened in Microsoft
+Edge automatically. The pages include a built-in refresh that updates them when
+new scans overwrite the files.
+Each page now uses a dark theme and includes buttons in the top-left corner for
+quickly switching between the different tables. Additional buttons labelled by
+timeframe let you sort the table values from largest to smallest or back again
+with repeated clicks.
+
 ## Grouping Debug Logs
 
 Use `group_logs.py` to organise `scanlog.txt` entries so that all lines for

@@ -5,6 +5,8 @@ import logging
 import platform
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import importlib
+import subprocess
+import webbrowser
 
 import pandas as pd
 from tqdm import tqdm
@@ -201,6 +203,92 @@ def export_to_excel(
             })
     if manage_writer:
         writer.close()
+
+
+def open_in_edge(file_path: str, logger: logging.Logger) -> None:
+    """Open ``file_path`` in Microsoft Edge if available."""
+    if platform.system() == "Windows":
+        try:
+            subprocess.Popen(  # pylint: disable=consider-using-with
+                ["cmd", "/c", "start", "msedge", file_path]
+            )
+        except OSError as exc:  # pragma: no cover - platform specific
+            logger.warning("Failed to open Edge: %s", exc)
+    else:  # pragma: no cover - platform specific
+        webbrowser.open(file_path)
+
+
+# pylint: disable=too-many-arguments,too-many-positional-arguments
+def export_to_html(
+    df: pd.DataFrame,
+    symbol_order: list,
+    logger: logging.Logger,
+    filename: str,
+    header: str,
+    nav_links: dict[str, str],
+) -> None:
+    """Write ``df`` to ``filename`` with a dark theme and auto-refresh."""
+    df["__sort_order"] = df["Symbol"].map({s: i for i, s in enumerate(symbol_order)})
+    df = df.sort_values("__sort_order").drop(columns=["__sort_order"])
+
+    os.makedirs("html", exist_ok=True)
+    path = os.path.join("html", filename)
+    logger.info("Exporting data to HTML: %s", path)
+    html_table = df.to_html(index=False, table_id="data-table")
+    nav = "<div>" + "".join(
+        f"<button onclick=\"location.href='{link}'\">{text}</button>"
+        for text, link in nav_links.items()
+    )
+    timeframes = ["5M", "15M", "30M", "1H", "4H", "1D", "1W", "1M"]
+    sort_buttons = "".join(
+        f"<button onclick=\"sortBy('{tf}')\">{tf}</button>"
+        for tf in timeframes
+        if tf in df.columns
+    )
+    nav += sort_buttons + "</div>"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(
+            "<html><head><meta charset='utf-8'>"
+            "<meta http-equiv='refresh' content='60'>"
+            "<style>"
+            "body{background:#121212;color:#fff;font-family:Arial,Helvetica,sans-serif;}"
+            "table{background:#1e1e1e;color:#fff;border-collapse:collapse;width:100%;}"
+            "th,td{border:1px solid #333;padding:4px;text-align:right;}"
+            "th{background:#333;}"
+            "td:first-child,th:first-child{text-align:left;}"
+            "button{background:#333;color:#fff;border:1px solid #555;padding:4px 8px;"
+            "margin-right:4px;cursor:pointer;}"
+            "button:hover{background:#444;}"
+            "</style>"
+            f"<title>{header}</title></head><body>"
+        )
+        f.write(nav)
+        f.write(f"<h1 style='margin-top:8px'>{header}</h1>")
+        f.write(html_table)
+        f.write(
+            "<script>"
+            "const sortDirections = {};"
+            "function sortBy(col){"
+            "  const table=document.getElementById('data-table');"
+            "  const headers=Array.from(table.rows[0].cells).map(c=>c.textContent.trim());"
+            "  const idx=headers.indexOf(col);"
+            "  if(idx===-1)return;"
+            "  const dir=sortDirections[col]||'desc';"
+            "  const rows=Array.from(table.tBodies[0].rows);"
+            "  rows.sort((a,b)=>{"
+            "    const aVal=parseFloat(a.cells[idx].textContent"
+            ".replace(/[%,$]/g,'').replace(/,/g,''))||0;"
+            "    const bVal=parseFloat(b.cells[idx].textContent"
+            ".replace(/[%,$]/g,'').replace(/,/g,''))||0;"
+            "    return dir==='desc'?bVal-aVal:aVal-bVal;"
+            "  });"
+            "  rows.forEach(r=>table.tBodies[0].appendChild(r));"
+            "  sortDirections[col]=dir==='desc'?'asc':'desc';"
+            "}"
+            "</script>"
+        )
+        f.write("</body></html>")
+    open_in_edge(os.path.abspath(path), logger)
 
 def submit_symbol_futures(symbols: list[str], executor: ThreadPoolExecutor,
                            logger: logging.Logger, func) -> dict:
@@ -485,6 +573,75 @@ def export_correlation_matrices(
     logger.info("Export complete: %s", filename)
 
 
+def export_all_data_html(
+    volume_df: pd.DataFrame,
+    funding_df: pd.DataFrame,
+    oi_df: pd.DataFrame,
+    corr_df: pd.DataFrame,
+    vol_df: pd.DataFrame,
+    price_df: pd.DataFrame,
+    symbol_order: list[str],
+    logger: logging.Logger,
+) -> None:
+    """Write all metric DataFrames to individual HTML files."""  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    links = {
+        "Volume": "volume.html",
+        "Funding Rates": "funding_rates.html",
+        "Open Interest": "open_interest.html",
+        "Correlation": "correlation.html",
+        "Price Movement": "price_movement.html",
+        "Price Change": "price_change.html",
+    }
+    export_to_html(
+        volume_df,
+        symbol_order,
+        logger,
+        filename="volume.html",
+        header="% Distance Below or Above 20 Bar Moving Average Volume Indicator",
+        nav_links=links,
+    )
+    export_to_html(
+        funding_df,
+        symbol_order,
+        logger,
+        filename="funding_rates.html",
+        header="Latest Funding Rates",
+        nav_links=links,
+    )
+    export_to_html(
+        oi_df,
+        symbol_order,
+        logger,
+        filename="open_interest.html",
+        header="% Change in Open Interest",
+        nav_links=links,
+    )
+    export_to_html(
+        corr_df,
+        symbol_order,
+        logger,
+        filename="correlation.html",
+        header="% Correlation of Each Symbol to BTC",
+        nav_links=links,
+    )
+    export_to_html(
+        vol_df,
+        symbol_order,
+        logger,
+        filename="price_movement.html",
+        header="% Price Movement",
+        nav_links=links,
+    )
+    export_to_html(
+        price_df,
+        symbol_order,
+        logger,
+        filename="price_change.html",
+        header="% Price Change",
+        nav_links=links,
+    )
+
+
 def main() -> None:
     """Entry point for running the scanner from the command line."""
     logger = setup_logging()
@@ -506,6 +663,16 @@ def main() -> None:
         price_df = run_price_change_scan(all_symbols, logger)
 
         export_all_data(
+            volume_df,
+            funding_df,
+            oi_df,
+            corr_df,
+            vol_df,
+            price_df,
+            symbol_order,
+            logger,
+        )
+        export_all_data_html(
             volume_df,
             funding_df,
             oi_df,
