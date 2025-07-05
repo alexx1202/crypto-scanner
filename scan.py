@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import importlib
 import subprocess
 import webbrowser
+import asyncio
 
 from typing import Callable
 
@@ -380,6 +381,7 @@ def scan_and_collect_results(symbols: list[str],
 def run_scan(
     all_symbols: list[tuple],
     logger: logging.Logger,
+    klines_cache: dict | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
     """Fetch volume, funding and open interest metrics."""
 
@@ -388,7 +390,7 @@ def run_scan(
     volume_rows, failed = scan_and_collect_results(
         [s for s, _ in all_symbols],
         logger,
-        core.process_symbol,
+        lambda s, log: core.process_symbol(s, log, klines_cache),
     )
 
     volume_map = dict(all_symbols)
@@ -452,7 +454,9 @@ def run_scan(
 
 
 def run_correlation_matrix_scan(
-    all_symbols: list[tuple], logger: logging.Logger
+    all_symbols: list[tuple],
+    logger: logging.Logger,
+    klines_cache: dict | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Return correlation matrices for each timeframe."""
     logger.info("Starting correlation matrix scan...")
@@ -464,17 +468,28 @@ def run_correlation_matrix_scan(
     minutes_map = {"5M": 5, "15M": 15, "30M": 30, "1H": 60, "4H": 240}
     returns_data = {key: {} for key in minutes_map}
 
-    for symbol, _ in tqdm(all_symbols, desc="CorrMatrix"):
-        klines = core.fetch_recent_klines(symbol)
+    def _get_returns(symbol: str) -> tuple[str, dict[str, list]]:
+        klines = core.fetch_recent_klines(symbol, cache=klines_cache)
         if not klines:
             logger.warning(
                 "%s skipped: No valid klines returned for correlation matrix.",
                 symbol,
             )
-            continue
+            return symbol, {}
+        data: dict[str, list] = {}
         for label, minutes in minutes_map.items():
             ret = correlation_math.calculate_returns(klines, minutes)
             if len(ret) == minutes:
+                data[label] = ret
+        return symbol, data
+
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        futures = {
+            executor.submit(_get_returns, s): s for s, _ in all_symbols
+        }
+        for future in tqdm(as_completed(futures), total=len(futures), desc="CorrMatrix"):
+            symbol, data = future.result()
+            for label, ret in data.items():
                 returns_data[label][symbol] = ret
 
     matrices: dict[str, pd.DataFrame] = {}
@@ -485,7 +500,11 @@ def run_correlation_matrix_scan(
     return matrices
 
 
-def run_price_change_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd.DataFrame:
+def run_price_change_scan(
+    all_symbols: list[tuple],
+    logger: logging.Logger,
+    klines_cache: dict | None = None,
+) -> pd.DataFrame:
     """Compute close price change for each symbol."""
     logger.info("Starting price change scan...")
     # This scan only relies on price data and remains fully functional even
@@ -499,7 +518,7 @@ def run_price_change_scan(all_symbols: list[tuple], logger: logging.Logger) -> p
     rows, failed = scan_and_collect_results(
         [s for s, _ in all_symbols],
         logger,
-        core.process_symbol_price_change,
+        lambda s, log: core.process_symbol_price_change(s, log, klines_cache),
     )
 
     if failed:
@@ -770,9 +789,13 @@ def main() -> None:
 
         clean_existing_excels(logger)
 
-        volume_df, funding_df, oi_df, symbol_order = run_scan(all_symbols, logger)
-        matrix_map = run_correlation_matrix_scan(all_symbols, logger)
-        price_df = run_price_change_scan(all_symbols, logger)
+        symbols_only = [s for s, _ in all_symbols]
+        logger.info("Fetching klines asynchronously for %d symbols", len(symbols_only))
+        klines_cache = asyncio.run(core.fetch_all_recent_klines_async(symbols_only))
+
+        volume_df, funding_df, oi_df, symbol_order = run_scan(all_symbols, logger, klines_cache)
+        matrix_map = run_correlation_matrix_scan(all_symbols, logger, klines_cache)
+        price_df = run_price_change_scan(all_symbols, logger, klines_cache)
 
         export_all_data(
             volume_df,

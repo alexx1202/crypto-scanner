@@ -8,8 +8,10 @@ import logging
 import hashlib
 from datetime import datetime, timezone
 
+import asyncio
 import requests
 from tqdm import tqdm
+import httpx
 import correlation_math
 import price_change_math
 import percentile_math
@@ -121,12 +123,47 @@ def fetch_with_backoff(url: str, symbol: str, logger: logging.Logger) -> list:
     return []
 
 
-def fetch_recent_klines(
+async def fetch_with_backoff_async(
+    url: str, symbol: str, logger: logging.Logger, client: httpx.AsyncClient
+) -> list:
+    """Asynchronously fetch a URL with retry/backoff for rate limits."""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = await client.get(url, headers=get_auth_headers(), timeout=10)
+            if response.status_code == 429:
+                delay = round(random.uniform(1.0, 2.5), 2)
+                logger.warning(
+                    "[%s] Rate limit hit (429). Retrying in %.2fs...",
+                    symbol,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                continue
+            response.raise_for_status()
+            return response.json().get("result", {}).get("list", [])
+        except httpx.RequestError as err:
+            logger.warning(
+                "[%s] Request error on attempt %d: %s",
+                symbol,
+                attempt + 1,
+                err,
+            )
+            await asyncio.sleep(1)
+    logger.error("[%s] Failed all retries. Giving up.", symbol)
+    return []
+
+
+def fetch_recent_klines(  # pylint: disable=too-many-locals
     symbol: str,
     interval: str = "1",
     total: int = 10080,
+    cache: dict | None = None,
 ) -> list:
     """Return ``total`` klines for ``symbol`` using backoff retry logic."""
+    if cache is not None and symbol in cache:
+        return cache[symbol]
+
     logger = get_debug_logger()
     main_logger = logging.getLogger("volume_logger")
 
@@ -172,7 +209,98 @@ def fetch_recent_klines(
         main_logger.warning("%s: Only %d klines returned, skipping.", symbol, len(all_klines))
         return []
 
-    return all_klines[-total:]
+    result = all_klines[-total:]
+    if cache is not None:
+        cache[symbol] = result
+    return result
+
+
+async def fetch_recent_klines_async(  # pylint: disable=too-many-locals
+    symbol: str,
+    interval: str = "1",
+    total: int = 10080,
+    cache: dict | None = None,
+    *,
+    client: httpx.AsyncClient | None = None,
+) -> list:
+    """Asynchronously fetch ``total`` klines for ``symbol``."""
+    if cache is not None and symbol in cache:
+        return cache[symbol]
+
+    manage_client = client is None
+    if manage_client:
+        client = httpx.AsyncClient()
+
+    logger = get_debug_logger()
+    main_logger = logging.getLogger("volume_logger")
+
+    seen_chunks: set[str] = set()
+    consecutive_duplicates = 0
+    all_klines: list = []
+    end_time = get_kline_end_time()
+
+    try:
+        while len(all_klines) < total:
+            start_time = end_time - (1000 * 60 * 1000)
+            url = build_kline_url(symbol, interval, start_time)
+            chunk = await fetch_with_backoff_async(url, symbol, logger, client)
+
+            if not chunk:
+                logger.debug("[%s] Empty chunk received. Ending fetch.", symbol)
+                break
+
+            chunk_key = stable_chunk_hash(chunk)
+            if chunk_key in seen_chunks:
+                consecutive_duplicates += 1
+                logger.debug("[%s] Duplicate chunk #%d detected.", symbol, consecutive_duplicates)
+                if consecutive_duplicates >= MAX_DUPLICATE_RETRIES:
+                    logger.warning(
+                        "%s: Max duplicate retries hit. Only %d klines gathered, expected %d.",
+                        symbol,
+                        len(all_klines),
+                        total,
+                    )
+                    break
+                end_time = start_time
+                continue
+
+            seen_chunks.add(chunk_key)
+            all_klines = chunk + all_klines
+            logger.debug("[%s] Total klines so far: %d", symbol, len(all_klines))
+            end_time = start_time
+            consecutive_duplicates = 0
+    except httpx.RequestError as err:
+        logger.error("[%s] Failed to fetch klines: %s", symbol, err)
+    finally:
+        if manage_client:
+            await client.aclose()
+
+    if len(all_klines) < 315:
+        main_logger.warning("%s: Only %d klines returned, skipping.", symbol, len(all_klines))
+        return []
+
+    result = all_klines[-total:]
+    if cache is not None:
+        cache[symbol] = result
+    return result
+
+
+async def fetch_all_recent_klines_async(
+    symbols: list[str],
+    interval: str = "1",
+    total: int = 10080,
+) -> dict[str, list]:
+    """Fetch klines for all ``symbols`` concurrently and return a cache."""
+    cache: dict[str, list] = {}
+    async with httpx.AsyncClient() as client:
+        tasks = {
+            symbol: fetch_recent_klines_async(
+                symbol, interval, total, cache, client=client
+            )
+            for symbol in symbols
+        }
+        await asyncio.gather(*tasks.values())
+    return cache
 
 
 def get_funding_rate(symbol: str) -> tuple[float, int]:
@@ -232,9 +360,13 @@ def get_open_interest_change(symbol: str, interval: str = "1h", limit: int = 24)
         )
         return 0.0
 
-def process_symbol(symbol: str, logger: logging.Logger) -> dict:
+def process_symbol(
+    symbol: str,
+    logger: logging.Logger,
+    klines_cache: dict | None = None,
+) -> dict:
     """Return volume percentage change metrics for ``symbol`` with percentiles."""
-    klines = fetch_recent_klines(symbol)
+    klines = fetch_recent_klines(symbol, cache=klines_cache)
     if not klines:
         logger.warning("%s skipped: No valid klines returned.", symbol)
         return None
@@ -274,9 +406,14 @@ def process_symbol(symbol: str, logger: logging.Logger) -> dict:
 
     return result
 
-def process_symbol_correlation(symbol: str, btc_klines: list, logger: logging.Logger) -> dict:
+def process_symbol_correlation(
+    symbol: str,
+    btc_klines: list,
+    logger: logging.Logger,
+    klines_cache: dict | None = None,
+) -> dict:
     """Return correlation metrics for ``symbol`` vs BTCUSDT."""
-    klines = fetch_recent_klines(symbol)
+    klines = fetch_recent_klines(symbol, cache=klines_cache)
     if not klines or not btc_klines:
         logger.warning("%s skipped: No valid klines returned for correlation.", symbol)
         return None
@@ -350,9 +487,13 @@ def process_symbol_funding(symbol: str, _logger: logging.Logger) -> dict:
 
 
 
-def process_symbol_price_change(symbol: str, logger: logging.Logger) -> dict:
+def process_symbol_price_change(
+    symbol: str,
+    logger: logging.Logger,
+    klines_cache: dict | None = None,
+) -> dict:
     """Return close price change metrics for ``symbol``."""
-    klines = fetch_recent_klines(symbol)
+    klines = fetch_recent_klines(symbol, cache=klines_cache)
     if not klines:
         logger.warning("%s skipped: No valid klines returned for price change.", symbol)
         return None
