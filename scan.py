@@ -251,7 +251,8 @@ def export_to_html(
         )
 
     numeric_cols = df.select_dtypes("number").columns
-    styled = df.style.applymap(style_cell, subset=numeric_cols)
+    highlight_cols = [c for c in numeric_cols if "Percentile" not in c]
+    styled = df.style.applymap(style_cell, subset=highlight_cols)
 
     format_dict: dict[str, Callable] = {}
     if "24h USD Volume" in numeric_cols:
@@ -275,7 +276,11 @@ def export_to_html(
             for tf in timeframes
             if tf in df.columns
         )
-        nav = f"<div>{sort_buttons}</div>"
+        nav = (
+            "<div style='display:flex;justify-content:flex-start;"
+            "align-items:center;gap:4px;margin-bottom:8px'>"
+            f"{sort_buttons}</div>"
+        )
 
     with open(path, "w", encoding="utf-8") as f:
         f.write(
@@ -376,6 +381,7 @@ def run_scan(
         filename="volume.html",
         header="% Distance Below or Above 20 Bar Moving Average Volume Indicator",
         refresh_seconds=540,
+        include_sort_buttons=True,
     )
 
     logger.info("Scanning funding rates...")
@@ -392,6 +398,7 @@ def run_scan(
         filename="funding_rates.html",
         header="Latest Funding Rates",
         refresh_seconds=60,
+        include_sort_buttons=True,
     )
 
     logger.info("Scanning open interest changes...")
@@ -408,6 +415,7 @@ def run_scan(
         filename="open_interest.html",
         header="% Change in Open Interest",
         refresh_seconds=60,
+        include_sort_buttons=True,
     )
 
     if failed:
@@ -490,6 +498,7 @@ def run_price_change_scan(all_symbols: list[tuple], logger: logging.Logger) -> p
         filename="price_change.html",
         header="% Price Change",
         refresh_seconds=1260,
+        include_sort_buttons=True,
     )
 
     return df
@@ -678,6 +687,7 @@ def export_all_data_html(
         filename="volume.html",
         header="% Distance Below or Above 20 Bar Moving Average Volume Indicator",
         refresh_seconds=540,
+        include_sort_buttons=True,
     )
     export_to_html(
         funding_df,
@@ -686,6 +696,7 @@ def export_all_data_html(
         filename="funding_rates.html",
         header="Latest Funding Rates",
         refresh_seconds=60,
+        include_sort_buttons=True,
     )
     export_to_html(
         oi_df,
@@ -694,6 +705,7 @@ def export_all_data_html(
         filename="open_interest.html",
         header="% Change in Open Interest",
         refresh_seconds=60,
+        include_sort_buttons=True,
     )
     export_to_html(
         price_df,
@@ -702,6 +714,7 @@ def export_all_data_html(
         filename="price_change.html",
         header="% Price Change",
         refresh_seconds=1260,
+        include_sort_buttons=True,
     )
 
 

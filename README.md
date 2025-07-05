@@ -43,9 +43,10 @@ root. If the scanner is run on Windows, these pages are opened in Microsoft
 Edge automatically. The pages include a built-in refresh that updates them when
 new scans overwrite the files.
 Each page now uses a dark theme and includes buttons in the top-left corner for
-quickly switching between the different tables. Additional buttons labelled by
-timeframe let you sort the table values from largest to smallest or back again
-with repeated clicks.
+quickly switching between the different tables. All buttons sit in a single
+horizontal row aligned to the far left. They let you sort by any timeframe
+column and toggle between largest-to-smallest and smallest-to-largest with each
+click.
 
 ## Grouping Debug Logs
 
