@@ -403,7 +403,7 @@ def run_scan(
         logger,
         filename="volume.html",
         header="% Distance Below or Above 20 Bar Moving Average Volume Indicator",
-        refresh_seconds=540,
+        refresh_seconds=900,
         include_sort_buttons=True,
     )
 
@@ -542,7 +542,7 @@ def run_price_change_scan(
         logger,
         filename="price_change.html",
         header="% Price Change",
-        refresh_seconds=1260,
+        refresh_seconds=1800,
         include_sort_buttons=True,
     )
 
@@ -791,7 +791,7 @@ def export_all_data_html(
         logger,
         filename="volume.html",
         header="% Distance Below or Above 20 Bar Moving Average Volume Indicator",
-        refresh_seconds=540,
+        refresh_seconds=900,
         include_sort_buttons=True,
     )
     export_to_html(
@@ -818,7 +818,7 @@ def export_all_data_html(
         logger,
         filename="price_change.html",
         header="% Price Change",
-        refresh_seconds=1260,
+        refresh_seconds=1800,
         include_sort_buttons=True,
     )
 
