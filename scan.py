@@ -267,12 +267,16 @@ def export_to_html(
         )
 
     numeric_cols = df.select_dtypes("number").columns
-    highlight_cols = [c for c in numeric_cols if "Percentile" not in c]
+    highlight_cols = [
+        c
+        for c in numeric_cols
+        if "Percentile" not in c and c != "24h USD Volume"
+    ]
     styled = df.style.map(style_cell, subset=highlight_cols)
 
     format_dict: dict[str, Callable] = {}
     if "24h USD Volume" in numeric_cols:
-        format_dict["24h USD Volume"] = lambda x: f"{x:,.0f}"
+        format_dict["24h USD Volume"] = lambda x: f"${x:,.0f}"
     for col in numeric_cols:
         if col == "Funding Rate":
             format_dict[col] = lambda x: f"{x:.7f}%"
