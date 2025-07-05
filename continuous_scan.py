@@ -18,9 +18,9 @@ def run_periodic_scans() -> None:  # pylint: disable=too-many-branches,too-many-
 
     intervals = {
         "funding": 60,
-        "oi": 60,
-        "corr": 10 * 60,
-        "volume": 15 * 60,
+        "oi": 5 * 60,
+        "corr": 15 * 60,
+        "volume": 20 * 60,
     }
     next_run = {key: 0 for key in intervals}
 
