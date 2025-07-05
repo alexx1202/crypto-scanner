@@ -637,57 +637,69 @@ def export_correlation_matrix_html(
     path = os.path.join("html", filename)
     logger.info("Exporting data to HTML: %s", path)
 
-    def style_cell(val: float) -> str:
-        try:
-            num = float(val)
-        except (TypeError, ValueError):
-            return ""
-        return (
-            "background-color:#C6EFCE;color:#006100"
-            if num >= 0
-            else "background-color:#FFC7CE;color:#9C0006"
-        )
+    def matrix_to_html(df: pd.DataFrame, label: str) -> str:
+        """Return a plain HTML table for ``df`` with CSS classes for colours."""
 
+        headers = ["<th></th>"] + [f"<th>{c}</th>" for c in df.columns]
+        rows = ["<tr>" + "".join(headers) + "</tr>"]
+
+        for idx, row in df.iterrows():
+            cells = [f"<th>{idx}</th>"]
+            for val in row:
+                try:
+                    num = float(val)
+                except (TypeError, ValueError):
+                    cls = ""
+                    text = ""
+                else:
+                    cls = "pos" if num >= 0 else "neg"
+                    text = f"{num:.2f}%"
+                cells.append(f"<td class='{cls}'>{text}</td>")
+            rows.append("<tr>" + "".join(cells) + "</tr>")
+
+        table = [f"<table id='table-{label}'>", "".join(rows), "</table>"]
+        return "".join(table)
     with open(path, "w", encoding="utf-8") as f:
         f.write(
-            "<html><head><meta charset='utf-8'>"
-            f"<meta http-equiv='refresh' content='{refresh_seconds}'>"
-            "<style>"
-            "body{background:#121212;color:#fff;font-family:Arial,Helvetica,sans-serif;}"
-            "table{background:#1e1e1e;color:#fff;border-collapse:collapse;width:100%;}"
-            "th,td{border:1px solid #333;padding:4px;text-align:right;}"
-            "th{background:#333;}"
-            "td:first-child,th:first-child{text-align:left;}"
-            "button{background:#333;color:#fff;border:1px solid #555;padding:4px 8px;"
-            "margin-right:4px;cursor:pointer;}"
-            "button:hover{background:#444;}"
-            "</style>"
-            "<title>Correlation Matrix</title></head><body>"
+        "<html><head><meta charset='utf-8'>"
+        f"<meta http-equiv='refresh' content='{refresh_seconds}'>"
+        "<style>"
+        "body{background:#121212;color:#fff;font-family:Arial,Helvetica,sans-serif;}"
+        "table{background:#1e1e1e;color:#fff;border-collapse:collapse;width:100%;}"
+        "th,td{border:1px solid #333;padding:4px;text-align:right;}"
+        "th{background:#333;}"
+        "td:first-child,th:first-child{text-align:left;}"
+        "button{background:#333;color:#fff;border:1px solid #555;padding:4px 8px;"
+        "margin-right:4px;cursor:pointer;}"
+        "button:hover{background:#444;}"
+        ".pos{background:#C6EFCE;color:#006100;}"
+        ".neg{background:#FFC7CE;color:#9C0006;}"
+        "</style>"
+        "<title>Correlation Matrix</title></head><body>"
         )
 
-        buttons = "".join(
-            f"<button onclick=\"showMatrix('{label}')\">{label}</button>"
-            for label in matrices
-        )
-        f.write(f"<div>{buttons}</div>")
+    buttons = "".join(
+        f"<button onclick=\"showMatrix('{label}')\">{label}</button>"
+        for label in matrices
+    )
+    f.write(f"<div>{buttons}</div>")
 
-        first = True
-        for label, df in matrices.items():
-            styled = df.style.map(style_cell).format("{:.2f}%")
-            html_table = styled.to_html(table_id=f"table-{label}")
-            display = "" if first else " style='display:none'"
-            f.write(f"<div id='div-{label}'{display}>{html_table}</div>")
-            first = False
+    first = True
+    for label, df in matrices.items():
+        html_table = matrix_to_html(df, label)
+        display = "" if first else " style='display:none'"
+        f.write(f"<div id='div-{label}'{display}>{html_table}</div>")
+        first = False
 
-        f.write(
-            "<script>"
-            "function showMatrix(label){"
-            "  document.querySelectorAll('[id^=div-]').forEach(d=>d.style.display='none');"
-            "  document.getElementById('div-'+label).style.display='block';"
-            "}"
-            "</script>"
-        )
-        f.write("</body></html>")
+    f.write(
+        "<script>"
+        "function showMatrix(label){"
+        "  document.querySelectorAll('[id^=div-]').forEach(d=>d.style.display='none');"
+        "  document.getElementById('div-'+label).style.display='block';"
+        "}"
+        "</script>"
+    )
+    f.write("</body></html>")
 
     open_in_edge(os.path.abspath(path), logger)
 
