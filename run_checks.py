@@ -18,7 +18,6 @@ PY_FILES = [
     "test.py",
     "volume_math.py",
     "correlation_math.py",
-    "price_change_math.py",
 ]
 
 

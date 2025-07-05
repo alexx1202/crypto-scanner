@@ -12,7 +12,6 @@ import core
 import scan
 from volume_math import calculate_volume_change
 import correlation_math
-import price_change_math
 import percentile_math
 
 def test_get_tradeable_symbols_sorted_by_volume():
@@ -342,47 +341,6 @@ def test_export_to_excel_swaps_column_order():
 
 
 
-def test_calculate_price_change_percent():
-    """Calculate close-to-close change for latest block."""
-    klines = [
-        [str(i), "", "", "", str(i + 1), "1"]
-        for i in range(5)
-    ] + [["5", "", "", "", "2", "1"]]
-    result = price_change_math.calculate_price_change_percent(klines, 5)
-    assert round(result, 2) == 100.0
-
-
-def test_process_symbol_price_change_with_mocked_logger():
-    """Ensure price change metrics include expected keys."""
-    mock_klines = [[str(i), "", "", "", str(i), "1"] for i in range(10080)]
-    with patch("core.fetch_recent_klines", return_value=mock_klines):
-        result = core.process_symbol_price_change("BTCUSDT", MagicMock())
-        expected_keys = {
-            "Symbol",
-            "5M",
-            "5M Percentile",
-            "15M",
-            "15M Percentile",
-            "30M",
-            "30M Percentile",
-            "1H",
-            "1H Percentile",
-            "4H",
-            "4H Percentile",
-        }
-        assert set(result.keys()) == expected_keys
-
-
-def test_run_price_change_scan_independent():
-    """Price change scan works without any volatility data."""
-    mock_klines = [[str(i), "", "", "", str(i), "1"] for i in range(10080)]
-    all_syms = [("BTCUSDT", 1), ("ETHUSDT", 2)]
-    logger = MagicMock()
-    with patch("core.fetch_recent_klines", return_value=mock_klines), \
-         patch("scan.export_to_html") as mock_export:
-        df = scan.run_price_change_scan(all_syms, logger)
-        assert set(df["Symbol"]) == {"BTCUSDT", "ETHUSDT"}
-        mock_export.assert_called_once()
 
 
 def test_run_correlation_scan():

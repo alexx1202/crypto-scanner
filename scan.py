@@ -515,60 +515,12 @@ def run_correlation_matrix_scan(
 
 
 
-def run_price_change_scan(
-    all_symbols: list[tuple],
-    logger: logging.Logger,
-    klines_cache: dict | None = None,
-) -> pd.DataFrame:
-    """Compute close price change for each symbol."""
-    logger.info("Starting price change scan...")
-    # This scan only relies on price data and remains fully functional even
-    # when other scans such as the old volatility scan are disabled. It
-    # fetches klines for each symbol independently and does not use any
-    # results from other metrics.
-    if not all_symbols:
-        logger.warning("No symbols retrieved. Skipping price change export.")
-        return pd.DataFrame()
-
-    rows, failed = scan_and_collect_results(
-        [s for s, _ in all_symbols],
-        logger,
-        lambda s, log: core.process_symbol_price_change(s, log, klines_cache),
-    )
-
-    if failed:
-        logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
-
-    df = pd.DataFrame(rows)
-    logger.info("Price change data collected for %d symbols", len(df))
-    for col in [
-        "5M Percentile",
-        "15M Percentile",
-        "30M Percentile",
-        "1H Percentile",
-        "4H Percentile",
-    ]:
-        if col in df.columns:
-            df[col] = df[col].astype(float)
-
-    export_to_html(
-        df,
-        [s for s, _ in all_symbols],
-        logger,
-        filename="price_change.html",
-        header="% Price Change",
-        refresh_seconds=1800,
-        include_sort_buttons=True,
-    )
-
-    return df
 
 
-def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def export_all_data(
     volume_df: pd.DataFrame,
     funding_df: pd.DataFrame,
     oi_df: pd.DataFrame,
-    price_df: pd.DataFrame,
     symbol_order: list[str],
     logger: logging.Logger,
     filename: str = "Scan.xlsx",
@@ -600,14 +552,6 @@ def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-a
             header="% Change in Open Interest",
             writer=writer,
             sheet_name="Open Interest",
-        )
-        export_to_excel(
-            price_df,
-            symbol_order,
-            logger,
-            header="% Price Change",
-            writer=writer,
-            sheet_name="Price Change",
         )
     logger.info("Export complete: %s", filename)
 
@@ -660,7 +604,6 @@ def export_all_data_html(
     volume_df: pd.DataFrame,
     funding_df: pd.DataFrame,
     oi_df: pd.DataFrame,
-    price_df: pd.DataFrame,
     symbol_order: list[str],
     logger: logging.Logger,
 ) -> None:
@@ -692,15 +635,6 @@ def export_all_data_html(
         refresh_seconds=60,
         include_sort_buttons=True,
     )
-    export_to_html(
-        price_df,
-        symbol_order,
-        logger,
-        filename="price_change.html",
-        header="% Price Change",
-        refresh_seconds=1800,
-        include_sort_buttons=True,
-    )
 
 
 def main() -> None:
@@ -723,7 +657,6 @@ def main() -> None:
 
         volume_df, funding_df, oi_df, symbol_order = run_scan(all_symbols, logger, klines_cache)
         corr_df = run_correlation_matrix_scan(all_symbols, logger, klines_cache)
-        price_df = run_price_change_scan(all_symbols, logger, klines_cache)
 
         export_correlation_matrices(corr_df, logger)
         send_push_notification(
@@ -736,7 +669,6 @@ def main() -> None:
             volume_df,
             funding_df,
             oi_df,
-            price_df,
             symbol_order,
             logger,
         )
