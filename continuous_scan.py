@@ -48,27 +48,27 @@ def run_periodic_scans() -> None:
                     logger.warning("No symbols retrieved. Skipping export.")
                 else:
                     volume_df, funding_df, oi_df, symbol_order = scan.run_scan(all_symbols, logger)
-                    scan.export_all_data(
-                        volume_df,
-                        funding_df,
-                        oi_df,
-                        price_df,
-                        symbol_order,
-                        logger,
-                        filename=filename,
-                    )
+                    if not price_df.empty:
+                        scan.export_all_data(
+                            volume_df,
+                            funding_df,
+                            oi_df,
+                            price_df,
+                            symbol_order,
+                            logger,
+                            filename=filename,
+                        )
+                        scan.send_push_notification(
+                            "Scan complete",
+                            f"{filename} has been exported.",
+                            logger,
+                        )
                     if now >= next_run["volume"]:
                         next_run["volume"] = now + intervals["volume"]
                     if now >= next_run["funding"]:
                         next_run["funding"] = now + intervals["funding"]
                     if now >= next_run["oi"]:
                         next_run["oi"] = now + intervals["oi"]
-
-                    scan.send_push_notification(
-                        "Scan complete",
-                        f"{filename} has been exported.",
-                        logger,
-                    )
 
             if now >= next_run["corr"]:
                 logger.info("Updating correlation matrix")
