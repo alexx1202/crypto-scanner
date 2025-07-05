@@ -282,7 +282,8 @@ def export_to_html(
             format_dict[col] = lambda x: f"{x:.2f}%"
 
     styled = styled.format(format_dict)
-    html_table = styled.to_html(index=False, table_id="data-table")
+    html_table = styled.to_html(index=False, table_uuid="data-table")
+    html_table = html_table.replace('id="T_data-table"', 'id="data-table"')
 
     nav = ""
     if include_sort_buttons:
@@ -674,7 +675,10 @@ def export_correlation_matrix_html(
         first = True
         for label, df in matrices.items():
             styled = df.style.map(style_cell).format("{:.2f}%")
-            html_table = styled.to_html(table_id=f"table-{label}")
+            html_table = styled.to_html(table_uuid=f"table-{label}")
+            html_table = html_table.replace(
+                f'id="T_table-{label}"', f'id="table-{label}"'
+            )
             display = "" if first else " style='display:none'"
             f.write(f"<div id='div-{label}'{display}>{html_table}</div>")
             first = False
