@@ -29,7 +29,7 @@ def run_periodic_scans() -> None:
     funding_df = pd.DataFrame()
     oi_df = pd.DataFrame()
     price_df = pd.DataFrame()
-    matrix_map: dict[str, pd.DataFrame] = {}
+    corr_df: pd.DataFrame = pd.DataFrame()
     symbol_order: list[str] = []
 
     while True:
@@ -73,11 +73,16 @@ def run_periodic_scans() -> None:
             if now >= next_run["corr"]:
                 logger.info("Updating correlation matrix")
                 all_symbols = core.get_tradeable_symbols_sorted_by_volume()
-                matrix_map = scan.run_correlation_matrix_scan(all_symbols, logger)
-                scan.export_correlation_matrices(matrix_map, logger)
+                corr_df = scan.run_correlation_matrix_scan(all_symbols, logger)
+                scan.export_correlation_matrices(corr_df, logger)
+                scan.export_correlation_matrix_html(
+                    corr_df,
+                    logger,
+                    refresh_seconds=intervals["corr"],
+                )
                 scan.send_push_notification(
-                    "Correlation matrix complete",
-                    "Correlation_Matrix.xlsx has been exported.",
+                    "Correlation scan complete",
+                    "Correlation.xlsx has been exported.",
                     logger,
                 )
                 next_run["corr"] = now + intervals["corr"]

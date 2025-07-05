@@ -385,6 +385,25 @@ def test_run_price_change_scan_independent():
         mock_export.assert_called_once()
 
 
+def test_run_correlation_scan():
+    """Correlation scan returns dataframe without exporting HTML."""
+    mock_klines = [[str(i), "", "", "", str(i), "1"] for i in range(10080)]
+    all_syms = [("BTCUSDT", 1), ("ETHUSDT", 2)]
+    logger = MagicMock()
+    with patch("core.fetch_recent_klines", return_value=mock_klines):
+        df = scan.run_correlation_matrix_scan(all_syms, logger)
+        assert set(df["Symbol"]) == {"BTCUSDT", "ETHUSDT"}
+
+
+def test_export_correlation_matrix_html():
+    """HTML export delegates to export_to_html."""
+    df = pd.DataFrame({"Symbol": ["BTCUSDT"], "5M": [0]})
+    logger = MagicMock()
+    with patch("scan.export_to_html") as mock_export:
+        scan.export_correlation_matrix_html(df, logger, refresh_seconds=60)
+        mock_export.assert_called_once()
+
+
 def test_percentile_rank_basic():
     """Percentile rank computes relative position of a value."""
     values = [1.0, 2.0, 3.0, 4.0]
