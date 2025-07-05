@@ -649,7 +649,7 @@ def export_correlation_matrix_html(
     logger: logging.Logger,
     filename: str = "correlation_matrix.html",
     *,
-    refresh_seconds: int = 1800,
+    refresh_seconds: int = 180,
 ) -> None:
     """Write correlation matrices to a single HTML file with timeframe buttons."""
 
@@ -714,7 +714,18 @@ def export_correlation_matrix_html(
         f"<button onclick=\"showMatrix('{label}')\">{label}</button>"
         for label in matrices
     )
-    html_parts.append(f"<div>{buttons}</div>")
+
+    symbols = sorted(next(iter(matrices.values())).columns)
+    options = "".join(f"<option value='{s}'>{s}</option>" for s in symbols)
+    dropdowns = (
+        f"<select id='filter1' onchange='applyFilter()'>"
+        f"<option value=''>Symbol 1</option>{options}</select>"
+        f"<select id='filter2' onchange='applyFilter()'>"
+        f"<option value=''>Symbol 2</option>{options}</select>"
+        "<button onclick='resetFilter()'>Reset Filter</button>"
+    )
+
+    html_parts.append(f"<div>{buttons}{dropdowns}</div>")
 
     first = True
     for label, df in matrices.items():
@@ -728,6 +739,33 @@ def export_correlation_matrix_html(
         "function showMatrix(label){",
         "  document.querySelectorAll('[id^=div-]').forEach(d=>d.style.display='none');",
         "  document.getElementById('div-'+label).style.display='block';",
+        "}",
+        "function applyFilter(){",
+        "  const sym1=document.getElementById('filter1').value;",
+        "  const sym2=document.getElementById('filter2').value;",
+        "  document.querySelectorAll('[id^=div-] table').forEach(t=>{",
+        "    const allowed=(!sym1||!sym2)?null:[sym1,sym2];",
+        "    t.querySelectorAll('tbody tr').forEach(r=>{",
+        "      const sym=r.querySelector('th').textContent;",
+        "      r.style.display=!allowed||allowed.includes(sym)?'':'none';",
+        "    });",
+        "    const heads=t.querySelectorAll('thead th');",
+        "    heads.forEach((th,i)=>{",
+        "      if(i===0)return;",
+        "      const sym=th.textContent;",
+        "      const show=!allowed||allowed.includes(sym);",
+        "      th.style.display=show?'':'none';",
+        "      t.querySelectorAll('tbody tr').forEach(row=>{",
+        "        const cells=row.querySelectorAll('td');",
+        "        if(cells[i-1]) cells[i-1].style.display=show?'':'none';",
+        "      });",
+        "    });",
+        "  });",
+        "}",
+        "function resetFilter(){",
+        "  document.getElementById('filter1').selectedIndex=0;",
+        "  document.getElementById('filter2').selectedIndex=0;",
+        "  applyFilter();",
         "}",
         "</script>",
         "</body></html>",
@@ -816,7 +854,7 @@ def main() -> None:
             logger,
         )
         export_correlation_matrices(matrix_map, logger)
-        export_correlation_matrix_html(matrix_map, logger, refresh_seconds=1800)
+        export_correlation_matrix_html(matrix_map, logger, refresh_seconds=180)
         send_push_notification(
             "Scan complete",
             "Scan.xlsx and Correlation_Matrix.xlsx have been exported.",

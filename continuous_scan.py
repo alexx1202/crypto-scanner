@@ -20,7 +20,7 @@ def run_periodic_scans() -> None:
         "volume": 9 * 60,
         "funding": 60,
         "oi": 60,
-        "corr": 30 * 60,
+        "corr": 3 * 60,
         "price": 21 * 60,
     }
     next_run = {key: 0 for key in intervals}
