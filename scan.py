@@ -625,7 +625,7 @@ def export_correlation_matrix_html(
     logger: logging.Logger,
     filename: str = "correlation_matrix.html",
     *,
-    refresh_seconds: int = 60,
+    refresh_seconds: int = 1800,
 ) -> None:
     """Write correlation matrices to a single HTML file with timeframe buttons."""
 
@@ -766,7 +766,7 @@ def main() -> None:
             logger,
         )
         export_correlation_matrices(matrix_map, logger)
-        export_correlation_matrix_html(matrix_map, logger, refresh_seconds=180)
+        export_correlation_matrix_html(matrix_map, logger, refresh_seconds=1800)
         send_push_notification(
             "Scan complete",
             "Scan.xlsx and Correlation_Matrix.xlsx have been exported.",
