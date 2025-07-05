@@ -28,7 +28,6 @@ def run_periodic_scans(interval_minutes: int = 30) -> None:
 
             volume_df, funding_df, oi_df, symbol_order = scan.run_scan(all_symbols, logger)
             corr_df = scan.run_correlation_scan(all_symbols, logger)
-            vol_df = scan.run_volatility_scan(all_symbols, logger)
             price_df = scan.run_price_change_scan(all_symbols, logger)
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -38,22 +37,12 @@ def run_periodic_scans(interval_minutes: int = 30) -> None:
                 funding_df,
                 oi_df,
                 corr_df,
-                vol_df,
                 price_df,
                 symbol_order,
                 logger,
                 filename=filename,
             )
-            scan.export_all_data_html(
-                volume_df,
-                funding_df,
-                oi_df,
-                corr_df,
-                vol_df,
-                price_df,
-                symbol_order,
-                logger,
-            )
+            # HTML files are created during each scan step
             scan.send_push_notification(
                 "Scan complete",
                 f"{filename} has been exported.",

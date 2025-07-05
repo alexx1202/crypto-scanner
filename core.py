@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 import requests
 from tqdm import tqdm
 import correlation_math
-import volatility_math
 import price_change_math
 import percentile_math
 
@@ -349,34 +348,6 @@ def process_symbol_funding(symbol: str, _logger: logging.Logger) -> dict:
     return {"Symbol": symbol, "Funding Rate": rate}
 
 
-def process_symbol_volatility(symbol: str, logger: logging.Logger) -> dict:
-    """Return price range percentage movement metrics with percentiles."""
-    klines = fetch_recent_klines(symbol)
-    if not klines:
-        logger.warning("%s skipped: No valid klines returned for volatility.", symbol)
-        return None
-    sorted_klines = sorted(klines, key=lambda k: int(k[0]))
-
-    def gather_changes(size: int) -> list[float]:
-        values: list[float] = []
-        for i in range(size, len(sorted_klines) + 1):
-            window = sorted_klines[i - size:i]
-            values.append(volatility_math.calculate_price_range_percent(window, size))
-        return values
-
-    result = {"Symbol": symbol}
-    for size, label in [(5, "5M"), (15, "15M"), (30, "30M"), (60, "1H"), (240, "4H")]:
-        changes = gather_changes(size)
-        latest = changes[-1] if changes else 0.0
-        percentile = (
-            percentile_math.percentile_rank(changes[:-1], latest)
-            if len(changes) > 1
-            else 0.0
-        )
-        result[label] = round(latest, 4)
-        result[f"{label} Percentile"] = round(percentile, 4)
-
-    return result
 
 
 def process_symbol_price_change(symbol: str, logger: logging.Logger) -> dict:
