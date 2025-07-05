@@ -13,6 +13,9 @@ def run_periodic_scans() -> None:
     logger = scan.setup_logging()
     logger.info("Continuous scan started. Press Ctrl+C to stop.")
 
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"Scan_{timestamp}.xlsx"
+
     intervals = {
         "volume": 9 * 60,
         "funding": 60,
@@ -45,8 +48,6 @@ def run_periodic_scans() -> None:
                     logger.warning("No symbols retrieved. Skipping export.")
                 else:
                     volume_df, funding_df, oi_df, symbol_order = scan.run_scan(all_symbols, logger)
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"Scan_{timestamp}.xlsx"
                     scan.export_all_data(
                         volume_df,
                         funding_df,
@@ -92,6 +93,7 @@ def run_periodic_scans() -> None:
                     price_df,
                     symbol_order,
                     logger,
+                    filename=filename,
                 )
                 next_run["price"] = now + intervals["price"]
 
