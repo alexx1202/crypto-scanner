@@ -404,6 +404,18 @@ def test_export_correlation_matrix_html():
         mock_export.assert_called_once()
 
 
+def test_export_correlation_matrices_opens_html():
+    """Excel export also triggers HTML export."""
+    df = pd.DataFrame({"Symbol": ["BTCUSDT"], "5M": [0]})
+    logger = MagicMock()
+    with patch("scan.export_to_excel") as mock_excel, patch(
+        "scan.export_correlation_matrix_html"
+    ) as mock_html:
+        scan.export_correlation_matrices(df, logger)
+        mock_excel.assert_called_once()
+        mock_html.assert_called_once_with(df, logger)
+
+
 def test_percentile_rank_basic():
     """Percentile rank computes relative position of a value."""
     values = [1.0, 2.0, 3.0, 4.0]
