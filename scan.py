@@ -258,7 +258,7 @@ def export_to_html(
 
     numeric_cols = df.select_dtypes("number").columns
     highlight_cols = [c for c in numeric_cols if "Percentile" not in c]
-    styled = df.style.applymap(style_cell, subset=highlight_cols)
+    styled = df.style.map(style_cell, subset=highlight_cols)
 
     format_dict: dict[str, Callable] = {}
     if "24h USD Volume" in numeric_cols:
@@ -658,7 +658,7 @@ def export_correlation_matrix_html(
 
         first = True
         for label, df in matrices.items():
-            styled = df.style.applymap(style_cell).format("{:.2f}%")
+            styled = df.style.map(style_cell).format("{:.2f}%")
             html_table = styled.to_html(table_id=f"table-{label}")
             display = "" if first else " style='display:none'"
             f.write(f"<div id='div-{label}'{display}>{html_table}</div>")
