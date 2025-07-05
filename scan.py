@@ -12,6 +12,7 @@ from typing import Callable
 
 import pandas as pd
 from tqdm import tqdm
+from xlsxwriter.utility import xl_col_to_name
 
 import core
 import correlation_math
@@ -192,7 +193,7 @@ def export_to_excel(
         ]
         for name in columns_to_format:
             col = df.columns.get_loc(name)
-            col_letter = chr(ord("A") + col)
+            col_letter = xl_col_to_name(col)
             cell_range = f"{col_letter}3:{col_letter}1048576"
             worksheet.conditional_format(cell_range, {
                 "type": "cell",
@@ -593,7 +594,7 @@ def export_correlation_matrices(
             worksheet.freeze_panes(1, 1)
             for idx in range(1, len(df.columns) + 1):
                 worksheet.set_column(idx, idx, None, percent_format)
-                col_letter = chr(ord("A") + idx)
+                col_letter = xl_col_to_name(idx)
                 cell_range = f"{col_letter}2:{col_letter}1048576"
                 worksheet.conditional_format(cell_range, {
                     "type": "cell",
