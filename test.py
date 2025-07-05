@@ -12,7 +12,6 @@ import core
 import scan
 from volume_math import calculate_volume_change
 import correlation_math
-import volatility_math
 import price_change_math
 import percentile_math
 
@@ -341,32 +340,6 @@ def test_export_to_excel_swaps_column_order():
         cols = captured.get("cols")
         assert cols.index("24h USD Volume") < cols.index("Funding Rate")
 
-def test_calculate_price_range_percent():
-    """Calculate correct high-low percentage for latest block."""
-    klines = [[str(i), "1", "10", "8", "", "1"] for i in range(5)]
-    result = volatility_math.calculate_price_range_percent(klines, 5)
-    assert round(result, 2) == 25.0
-
-
-def test_process_symbol_volatility_with_mocked_logger():
-    """Ensure volatility metrics include expected keys."""
-    mock_klines = [[str(i), "1", "10", "8", "", "1"] for i in range(10080)]
-    with patch("core.fetch_recent_klines", return_value=mock_klines):
-        result = core.process_symbol_volatility("BTCUSDT", MagicMock())
-        expected = {
-            "Symbol",
-            "5M",
-            "5M Percentile",
-            "15M",
-            "15M Percentile",
-            "30M",
-            "30M Percentile",
-            "1H",
-            "1H Percentile",
-            "4H",
-            "4H Percentile",
-        }
-        assert set(result.keys()) == expected
 
 
 def test_calculate_price_change_percent():

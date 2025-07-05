@@ -15,6 +15,13 @@ import core
 import correlation_math
 from scan_utils import wait_for_file_close
 
+NAV_LINKS = {
+    "Volume": "volume.html",
+    "Funding Rates": "funding_rates.html",
+    "Open Interest": "open_interest.html",
+    "Correlation": "correlation.html",
+    "Price Change": "price_change.html",
+}
 
 def get_toast_notifier():
     """Return the ``ToastNotifier`` class if ``win10toast`` is available."""
@@ -335,12 +342,30 @@ def run_scan(
     volume_map = dict(all_symbols)
     for row in volume_rows:
         row["24h USD Volume"] = volume_map.get(row["Symbol"], 0)
+    volume_df = pd.DataFrame(volume_rows)
+    export_to_html(
+        volume_df,
+        [s for s, _ in all_symbols],
+        logger,
+        filename="volume.html",
+        header="% Distance Below or Above 20 Bar Moving Average Volume Indicator",
+        nav_links=NAV_LINKS,
+    )
 
     logger.info("Scanning funding rates...")
     funding_rows, _ = scan_and_collect_results(
         [s for s, _ in all_symbols],
         logger,
         core.process_symbol_funding,
+    )
+    funding_df = pd.DataFrame(funding_rows)
+    export_to_html(
+        funding_df,
+        [s for s, _ in all_symbols],
+        logger,
+        filename="funding_rates.html",
+        header="Latest Funding Rates",
+        nav_links=NAV_LINKS,
     )
 
     logger.info("Scanning open interest changes...")
@@ -349,14 +374,23 @@ def run_scan(
         logger,
         core.process_symbol_open_interest,
     )
+    oi_df = pd.DataFrame(oi_rows)
+    export_to_html(
+        oi_df,
+        [s for s, _ in all_symbols],
+        logger,
+        filename="open_interest.html",
+        header="% Change in Open Interest",
+        nav_links=NAV_LINKS,
+    )
 
     if failed:
         logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
 
     return (
-        pd.DataFrame(volume_rows),
-        pd.DataFrame(funding_rows),
-        pd.DataFrame(oi_rows),
+        volume_df,
+        funding_df,
+        oi_df,
         [s for s, _ in all_symbols],
     )
 
@@ -395,6 +429,15 @@ def run_correlation_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd
         if col in df.columns:
             df[col] = df[col] * 100
 
+    export_to_html(
+        df,
+        [s for s, _ in all_symbols],
+        logger,
+        filename="correlation.html",
+        header="% Correlation of Each Symbol to BTC",
+        nav_links=NAV_LINKS,
+    )
+
     return df
 
 
@@ -432,25 +475,6 @@ def run_correlation_matrix_scan(
     return matrices
 
 
-def run_volatility_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd.DataFrame:
-    """Compute high-low price movement for each symbol."""
-    logger.info("Starting volatility scan...")
-    if not all_symbols:
-        logger.warning("No symbols retrieved. Skipping volatility export.")
-        return pd.DataFrame()
-
-    rows, failed = scan_and_collect_results(
-        [s for s, _ in all_symbols],
-        logger,
-        core.process_symbol_volatility,
-    )
-
-    if failed:
-        logger.warning("%d symbols failed: %s", len(failed), ", ".join(failed))
-
-    return pd.DataFrame(rows)
-
-
 def run_price_change_scan(all_symbols: list[tuple], logger: logging.Logger) -> pd.DataFrame:
     """Compute close price change for each symbol."""
     logger.info("Starting price change scan...")
@@ -478,6 +502,15 @@ def run_price_change_scan(all_symbols: list[tuple], logger: logging.Logger) -> p
         if col in df.columns:
             df[col] = df[col].astype(float)
 
+    export_to_html(
+        df,
+        [s for s, _ in all_symbols],
+        logger,
+        filename="price_change.html",
+        header="% Price Change",
+        nav_links=NAV_LINKS,
+    )
+
     return df
 
 
@@ -486,7 +519,6 @@ def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-a
     funding_df: pd.DataFrame,
     oi_df: pd.DataFrame,
     corr_df: pd.DataFrame,
-    vol_df: pd.DataFrame,
     price_df: pd.DataFrame,
     symbol_order: list[str],
     logger: logging.Logger,
@@ -529,15 +561,6 @@ def export_all_data(  # pylint: disable=too-many-arguments,too-many-positional-a
             sheet_name="Correlation",
         )
         export_to_excel(
-            vol_df,
-            symbol_order,
-            logger,
-            header="% Price Movement",
-            writer=writer,
-            sheet_name="Price Movement",
-            apply_conditional_formatting=False,
-        )
-        export_to_excel(
             price_df,
             symbol_order,
             logger,
@@ -578,20 +601,12 @@ def export_all_data_html(
     funding_df: pd.DataFrame,
     oi_df: pd.DataFrame,
     corr_df: pd.DataFrame,
-    vol_df: pd.DataFrame,
     price_df: pd.DataFrame,
     symbol_order: list[str],
     logger: logging.Logger,
 ) -> None:
     """Write all metric DataFrames to individual HTML files."""  # pylint: disable=too-many-arguments,too-many-positional-arguments
-    links = {
-        "Volume": "volume.html",
-        "Funding Rates": "funding_rates.html",
-        "Open Interest": "open_interest.html",
-        "Correlation": "correlation.html",
-        "Price Movement": "price_movement.html",
-        "Price Change": "price_change.html",
-    }
+    links = NAV_LINKS
     export_to_html(
         volume_df,
         symbol_order,
@@ -625,14 +640,6 @@ def export_all_data_html(
         nav_links=links,
     )
     export_to_html(
-        vol_df,
-        symbol_order,
-        logger,
-        filename="price_movement.html",
-        header="% Price Movement",
-        nav_links=links,
-    )
-    export_to_html(
         price_df,
         symbol_order,
         logger,
@@ -659,7 +666,6 @@ def main() -> None:
         volume_df, funding_df, oi_df, symbol_order = run_scan(all_symbols, logger)
         corr_df = run_correlation_scan(all_symbols, logger)
         matrix_map = run_correlation_matrix_scan(all_symbols, logger)
-        vol_df = run_volatility_scan(all_symbols, logger)
         price_df = run_price_change_scan(all_symbols, logger)
 
         export_all_data(
@@ -667,17 +673,6 @@ def main() -> None:
             funding_df,
             oi_df,
             corr_df,
-            vol_df,
-            price_df,
-            symbol_order,
-            logger,
-        )
-        export_all_data_html(
-            volume_df,
-            funding_df,
-            oi_df,
-            corr_df,
-            vol_df,
             price_df,
             symbol_order,
             logger,
