@@ -289,25 +289,6 @@ def test_calculate_volume_change_4h():
 
 
 
-def test_send_push_notification_sends_toast_on_windows():
-    """Toast notifier is used on Windows."""
-    logger = MagicMock()
-    with patch("scan.platform.system", return_value="Windows"), \
-         patch("scan.get_toast_notifier") as mock_get:
-        notifier_cls = MagicMock()
-        mock_get.return_value = notifier_cls
-        instance = notifier_cls.return_value
-        scan.send_push_notification("title", "msg", logger)
-        instance.show_toast.assert_called_once_with("title", "msg", duration=5)
-
-
-def test_send_push_notification_skips_on_non_windows():
-    """No toast created when not running on Windows."""
-    logger = MagicMock()
-    with patch("scan.platform.system", return_value="Linux"), \
-         patch("scan.get_toast_notifier") as mock_get:
-        scan.send_push_notification("title", "msg", logger)
-        mock_get.assert_not_called()
 
 
 def test_export_to_excel_swaps_column_order():

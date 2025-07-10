@@ -4,7 +4,6 @@ import os
 import logging
 import platform
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import importlib
 import subprocess
 import webbrowser
 import asyncio
@@ -17,16 +16,6 @@ from xlsxwriter.utility import xl_col_to_name
 
 import core
 from scan_utils import wait_for_file_close
-
-
-def get_toast_notifier():
-    """Return the ``ToastNotifier`` class if ``win10toast`` is available."""
-    try:  # pragma: no cover - optional dependency
-        module = importlib.import_module("win10toast")
-        return module.ToastNotifier
-    except (ImportError, AttributeError):
-        return None
-
 
 def setup_logging() -> logging.Logger:
     """Configure and return the main scanner logger."""
@@ -59,35 +48,6 @@ def clean_existing_excels(logger: logging.Logger | None = None) -> None:
                 os.remove(file)
             except OSError:
                 logger.warning("Failed to delete %s", file)
-
-
-def send_push_notification(title: str, message: str, logger: logging.Logger) -> None:
-    """Show a Windows toast notification if supported."""
-    if platform.system() != "Windows":
-        logger.info("Windows notifications not supported on this OS. Skipping.")
-        return
-
-    notifier_class = get_toast_notifier()
-    if notifier_class is None:
-        logger.info("win10toast not installed. Skipping notification.")
-        return
-
-    try:
-        notifier = notifier_class()
-        if hasattr(notifier, "on_destroy"):
-            original = notifier.on_destroy
-
-            def _on_destroy(hwnd, msg, wparam, lparam) -> int:
-                original(hwnd, msg, wparam, lparam)
-                return 0
-
-            notifier.on_destroy = _on_destroy
-
-        notifier.show_toast(title, message, duration=5)
-        logger.info("Windows notification sent")
-    except (OSError, TypeError) as exc:  # pragma: no cover - platform specific error
-        logger.warning("Failed to send notification: %s", exc)
-
 
 def export_to_excel(
     df: pd.DataFrame,
@@ -659,11 +619,6 @@ def main() -> None:
         corr_df = run_correlation_matrix_scan(all_symbols, logger, klines_cache)
 
         export_correlation_matrices(corr_df, logger)
-        send_push_notification(
-            "Correlation scan complete",
-            "Correlation.xlsx has been exported.",
-            logger,
-        )
 
         export_all_data(
             volume_df,
