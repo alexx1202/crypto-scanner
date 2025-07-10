@@ -71,9 +71,3 @@ All logs are written to the `logs` directory in the project root:
 `scan.py` writes `scanlog.txt` here, while `run_checks.py` creates
 `pylint.log` and `pytest.log` in the same directory.
 
-## Windows Notifications
-
-If the optional `win10toast` package is installed and the script is run on
-Windows, a toast notification is shown when scans finish. No additional
-configuration is required. On other platforms the notification step is skipped.
-

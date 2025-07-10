@@ -58,11 +58,6 @@ def run_periodic_scans() -> None:  # pylint: disable=too-many-branches,too-many-
                     if now >= next_run["corr"]:
                         matrix_map = scan.run_correlation_matrix_scan(all_symbols, logger)
                         scan.export_correlation_matrices(matrix_map, logger)
-                        scan.send_push_notification(
-                            "Correlation matrix complete",
-                            "Correlation_Matrix.xlsx has been exported.",
-                            logger,
-                        )
                         next_run["corr"] = now + intervals["corr"]
 
                     if now >= next_run["volume"]:
@@ -75,11 +70,6 @@ def run_periodic_scans() -> None:  # pylint: disable=too-many-branches,too-many-
                             symbol_order,
                             logger,
                             filename=filename,
-                        )
-                        scan.send_push_notification(
-                            "Scan complete",
-                            f"{filename} has been exported.",
-                            logger,
                         )
                     if now >= next_run["volume"]:
                         next_run["volume"] = now + intervals["volume"]
@@ -94,11 +84,6 @@ def run_periodic_scans() -> None:  # pylint: disable=too-many-branches,too-many-
                 corr_df = scan.run_correlation_matrix_scan(all_symbols, logger)
                 scan.export_correlation_matrices(
                     corr_df, logger
-                )
-                scan.send_push_notification(
-                    "Correlation scan complete",
-                    "Correlation.xlsx has been exported.",
-                    logger,
                 )
                 next_run["corr"] = now + intervals["corr"]
 
