@@ -47,7 +47,8 @@ Each page now uses a dark theme and includes buttons in the top-left corner for
 quickly switching between the different tables. All buttons sit in a single
 horizontal row aligned to the far left. They let you sort by any timeframe
 column and toggle between largest-to-smallest and smallest-to-largest with each
-click.
+click. When a table includes the ``24h USD Volume`` column, an extra button
+appears so you can sort all rows by volume as well.
 
 ## Grouping Debug Logs
 

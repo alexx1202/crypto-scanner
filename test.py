@@ -5,7 +5,7 @@ and Excel export behavior. Supports pytest + pylint 10/10 compliance.
 """
 
 import logging
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, PropertyMock
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 import core
@@ -424,3 +424,45 @@ def test_export_to_excel_formats_percentile_columns():
         scan.export_to_excel(df, ["BTCUSDT"], logger)
         idx = df.columns.get_loc("5M Percentile")
         worksheet.set_column.assert_any_call(idx, idx, None, fmt)
+
+
+def test_export_to_html_includes_volume_button(tmp_path):
+    """HTML export adds a sort button for 24h volume when column exists."""
+    df = pd.DataFrame([
+        {"Symbol": "BTCUSDT", "24h USD Volume": 1000, "5M": 1.0}
+    ])
+    logger = MagicMock()
+    out_file = tmp_path / "out.html"
+    class DummyStyler:
+        """Minimal Styler used to bypass jinja2 dependency."""
+
+        def __init__(self, frame):
+            self.frame = frame
+
+        def map(self, *_, **__):
+            """Return self without applying styles."""
+            return self
+
+        def format(self, *_, **__):
+            """Return self without formatting."""
+            return self
+
+        def to_html(self, index=False, table_uuid=None):  # pylint: disable=unused-argument
+            """Return HTML for the underlying DataFrame."""
+            return self.frame.to_html(index=index)
+
+    with patch("scan.open_in_edge"), \
+         patch("scan.os.path.join", return_value=out_file), \
+         patch("scan.os.makedirs"), \
+         patch("pandas.DataFrame.style", new_callable=PropertyMock) as mock_style:
+        mock_style.return_value = DummyStyler(df)
+        scan.export_to_html(
+            df,
+            ["BTCUSDT"],
+            logger,
+            filename="out.html",
+            header="hdr",
+            include_sort_buttons=True,
+        )
+    content = out_file.read_text(encoding="utf-8")
+    assert "sortBy('24h USD Volume')" in content
