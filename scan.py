@@ -252,11 +252,16 @@ def export_to_html(
     nav = ""
     if include_sort_buttons:
         timeframes = ["5M", "15M", "30M", "1H", "4H", "1D", "1W", "1M"]
-        sort_buttons = "".join(
+        buttons = [
             f"<button onclick=\"sortBy('{tf}')\">{tf}</button>"
             for tf in timeframes
             if tf in df.columns
-        )
+        ]
+        if "24h USD Volume" in df.columns:
+            buttons.append(
+                "<button onclick=\"sortBy('24h USD Volume')\">24h Vol</button>"
+            )
+        sort_buttons = "".join(buttons)
         nav = (
             "<div style='display:flex;justify-content:flex-start;"
             "align-items:center;gap:4px;margin-bottom:8px'>"
